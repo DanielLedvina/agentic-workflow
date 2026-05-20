@@ -1,4 +1,5 @@
 import { Component, signal } from '@angular/core';
+import { RouterLink, RouterOutlet } from '@angular/router';
 
 interface JiraTicket {
   key: string;
@@ -11,7 +12,7 @@ interface JiraTicket {
 
 @Component({
   selector: 'app-root',
-  imports: [],
+  imports: [RouterLink, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

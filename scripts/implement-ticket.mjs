@@ -1,10 +1,11 @@
 /**
  * Fetches a Jira ticket, sends it to Claude API, and applies the generated code changes.
  * Called by the GitHub Action; expects env vars: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN,
- * ANTHROPIC_API_KEY, TICKET_KEY.
+ * ANTHROPIC_API_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_BASE_URL, TICKET_KEY.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { Langfuse } from 'langfuse';
 import { execSync } from 'child_process';
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { dirname } from 'path';
@@ -14,6 +15,9 @@ const {
   JIRA_EMAIL,
   JIRA_API_TOKEN,
   ANTHROPIC_API_KEY,
+  LANGFUSE_SECRET_KEY,
+  LANGFUSE_PUBLIC_KEY,
+  LANGFUSE_BASE_URL,
   TICKET_KEY,
 } = process.env;
 
@@ -22,7 +26,24 @@ if (!TICKET_KEY) {
   process.exit(1);
 }
 
+// ── Langfuse setup ────────────────────────────────────────────────────────
+
+const langfuse = new Langfuse({
+  secretKey: LANGFUSE_SECRET_KEY,
+  publicKey: LANGFUSE_PUBLIC_KEY,
+  baseUrl: LANGFUSE_BASE_URL,
+});
+
+const trace = langfuse.trace({
+  name: 'implement-ticket',
+  userId: JIRA_EMAIL,
+  metadata: { ticketKey: TICKET_KEY },
+  tags: ['agentic-workflow'],
+});
+
 // ── 1. Fetch Jira ticket ────────────────────────────────────────────────────
+
+const jiraSpan = trace.span({ name: 'fetch-jira-ticket', input: { ticketKey: TICKET_KEY } });
 
 const auth = Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString('base64');
 const jiraRes = await fetch(
@@ -31,7 +52,10 @@ const jiraRes = await fetch(
 );
 
 if (!jiraRes.ok) {
-  console.error(`Jira API error: ${jiraRes.status} ${await jiraRes.text()}`);
+  const err = await jiraRes.text();
+  jiraSpan.end({ output: { error: err }, level: 'ERROR' });
+  await langfuse.flushAsync();
+  console.error(`Jira API error: ${jiraRes.status} ${err}`);
   process.exit(1);
 }
 
@@ -42,14 +66,17 @@ const issueType = issue.fields.issuetype.name;
 const priority = issue.fields.priority?.name ?? 'Medium';
 const reporterEmail = issue.fields.reporter?.emailAddress;
 
+jiraSpan.end({ output: { summary, issueType, priority, reporterEmail } });
+
 if (reporterEmail !== JIRA_EMAIL) {
+  trace.update({ metadata: { skipped: true, reason: `reporter=${reporterEmail}` } });
+  await langfuse.flushAsync();
   console.log(`Skipping — ticket reported by ${reporterEmail ?? 'nobody'}, expected ${JIRA_EMAIL}`);
   process.exit(0);
 }
 
 console.log(`Ticket: ${TICKET_KEY} — ${summary}`);
 
-// Export for GitHub Action step
 appendEnvFile('TICKET_SUMMARY', summary);
 appendEnvFile('TICKET_DESCRIPTION', description);
 
@@ -94,6 +121,15 @@ ${description}
 
 Return the JSON array of file changes. Start your response with [ immediately.`;
 
+const claudeGeneration = trace.generation({
+  name: 'claude-implement',
+  model: 'claude-sonnet-4-6',
+  input: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ],
+});
+
 const message = await client.messages.create({
   model: 'claude-sonnet-4-6',
   max_tokens: 8096,
@@ -103,24 +139,36 @@ const message = await client.messages.create({
 
 const rawResponse = message.content[0].text.trim();
 
+claudeGeneration.end({
+  output: rawResponse,
+  usage: {
+    input: message.usage.input_tokens,
+    output: message.usage.output_tokens,
+  },
+});
+
 // ── 4. Parse and apply file changes ──────────────────────────────────────
 
 let changes;
 try {
-  // Extract JSON array even if Claude prepends explanation text
   const match = rawResponse.match(/\[[\s\S]*\]/);
   if (!match) throw new Error('No JSON array found');
   changes = JSON.parse(match[0]);
 } catch (e) {
+  trace.update({ metadata: { error: 'non-json-response' } });
+  await langfuse.flushAsync();
   console.error('Claude returned non-JSON response:\n', rawResponse);
   process.exit(1);
 }
 
 if (!Array.isArray(changes) || changes.length === 0) {
+  trace.update({ metadata: { error: 'empty-changes' } });
+  await langfuse.flushAsync();
   console.error('No file changes returned by Claude.');
   process.exit(1);
 }
 
+const writtenFiles = [];
 for (const { path, content } of changes) {
   if (!path.startsWith('src/')) {
     console.warn(`Skipping out-of-scope path: ${path}`);
@@ -128,8 +176,12 @@ for (const { path, content } of changes) {
   }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
+  writtenFiles.push(path);
   console.log(`  Written: ${path}`);
 }
+
+trace.update({ output: { filesChanged: writtenFiles } });
+await langfuse.flushAsync();
 
 console.log(`\nDone — ${changes.length} file(s) changed.`);
 
@@ -138,7 +190,6 @@ console.log(`\nDone — ${changes.length} file(s) changed.`);
 function extractDescription(adf) {
   if (!adf) return '(no description)';
   if (typeof adf === 'string') return adf;
-  // Atlassian Document Format → plain text
   const lines = [];
   for (const block of adf.content ?? []) {
     for (const inline of block.content ?? []) {

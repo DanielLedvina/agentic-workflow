@@ -1,0 +1,8 @@
+{
+  "/langfuse": {
+    "target": "https://cloud.langfuse.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/langfuse": "" }
+  }
+}

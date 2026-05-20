@@ -1,0 +1,91 @@
+<div class="dashboard">
+  <header class="dash-header">
+    <h1>Agentic Workflow Dashboard</h1>
+    <button class="btn-refresh" (click)="loadTraces()">Refresh</button>
+  </header>
+
+  @if (loading()) {
+    <div class="state-message">Loading traces...</div>
+  } @else if (error()) {
+    <div class="state-message state-message--error">{{ error() }}</div>
+  } @else {
+    <div class="dash-body">
+      <section class="traces-panel">
+        <h2>Recent Runs <span class="count">{{ traces().length }}</span></h2>
+
+        @if (traces().length === 0) {
+          <div class="empty">No traces yet — trigger a Jira ticket to get started.</div>
+        }
+
+        <ul class="trace-list">
+          @for (trace of traces(); track trace.id) {
+            <li
+              class="trace-item"
+              [class.trace-item--active]="selectedTrace()?.id === trace.id"
+              (click)="selectTrace(trace)"
+            >
+              <div class="trace-top">
+                <span class="ticket-key">{{ getTicketKey(trace) }}</span>
+                <span class="trace-status" [class]="getStatusClass(trace)">
+                  {{ getStatusLabel(trace) }}
+                </span>
+              </div>
+              <div class="trace-name">{{ trace.name }}</div>
+              <div class="trace-time">{{ trace.timestamp | date: 'dd.MM.yyyy HH:mm' }}</div>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="detail-panel">
+        @if (!selectedTrace()) {
+          <div class="empty">Select a run to see details.</div>
+        } @else {
+          <div class="detail-header">
+            <h2>{{ getTicketKey(selectedTrace()!) }}</h2>
+            <span class="trace-status" [class]="getStatusClass(selectedTrace()!)">
+              {{ getStatusLabel(selectedTrace()!) }}
+            </span>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">User</span>
+              <span>{{ selectedTrace()!.userId }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Time</span>
+              <span>{{ selectedTrace()!.timestamp | date: 'dd.MM.yyyy HH:mm:ss' }}</span>
+            </div>
+            @if (selectedTrace()!.output) {
+              <div class="meta-item meta-item--full">
+                <span class="meta-label">Output</span>
+                <pre class="output-pre">{{ selectedTrace()!.output | json }}</pre>
+              </div>
+            }
+          </div>
+
+          <h3>Steps</h3>
+          <ul class="obs-list">
+            @for (obs of observations(); track obs.id) {
+              <li class="obs-item" [class]="'obs-item--' + obs.type.toLowerCase()">
+                <div class="obs-top">
+                  <span class="obs-name">{{ obs.name }}</span>
+                  <span class="obs-type">{{ obs.type }}</span>
+                </div>
+                @if (obs.model) {
+                  <div class="obs-model">{{ obs.model }} · {{ getTokenCount(obs) }} tokens</div>
+                }
+                @if (obs.level === 'ERROR') {
+                  <div class="obs-error">Error in this step</div>
+                }
+              </li>
+            } @empty {
+              <li class="empty">Loading steps...</li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+  }
+</div>

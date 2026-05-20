@@ -10,6 +10,7 @@
     <div class="board-meta">
       <span class="sprint-label">Sprint 1</span>
       <span class="ticket-count">{{ tickets().length }} issues</span>
+      <a class="dashboard-link" routerLink="/dashboard">Agent Dashboard</a>
     </div>
   </header>
 
@@ -42,3 +43,5 @@
     }
   </div>
 </div>
+
+<router-outlet />

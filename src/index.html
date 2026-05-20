@@ -1,13 +1,18 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>AgenticDemo</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
-<body>
-  <app-root></app-root>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>AgenticDemo</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  </head>
+  <body>
+    <app-root></app-root>
+    <script>
+      // Langfuse credentials for dev — replace with your keys
+      window.__LANGFUSE_PUBLIC_KEY__ = 'pk-lf-1ed08a78-4d2b-454d-82de-f49f9694fce5';
+      window.__LANGFUSE_SECRET_KEY__ = 'sk-lf-ec2eae4d-ae26-44cd-a584-46b74172a7f4';
+    </script>
+  </body>
 </html>
