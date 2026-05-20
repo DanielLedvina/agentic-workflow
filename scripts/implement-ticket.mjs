@@ -40,10 +40,10 @@ const summary = issue.fields.summary;
 const description = extractDescription(issue.fields.description);
 const issueType = issue.fields.issuetype.name;
 const priority = issue.fields.priority?.name ?? 'Medium';
-const assigneeEmail = issue.fields.assignee?.emailAddress;
+const reporterEmail = issue.fields.reporter?.emailAddress;
 
-if (assigneeEmail !== JIRA_EMAIL) {
-  console.log(`Skipping — ticket assigned to ${assigneeEmail ?? 'nobody'}, expected ${JIRA_EMAIL}`);
+if (reporterEmail !== JIRA_EMAIL) {
+  console.log(`Skipping — ticket reported by ${reporterEmail ?? 'nobody'}, expected ${JIRA_EMAIL}`);
   process.exit(0);
 }
 
