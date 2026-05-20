@@ -1,9 +1,3 @@
-/**
- * Fetches a Jira ticket, sends it to Claude API, and applies the generated code changes.
- * Called by the GitHub Action; expects env vars: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN,
- * ANTHROPIC_API_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY, LANGFUSE_BASE_URL, TICKET_KEY.
- */
-
 import Anthropic from '@anthropic-ai/sdk';
 import { Langfuse } from 'langfuse';
 import { execSync } from 'child_process';
@@ -41,7 +35,7 @@ const trace = langfuse.trace({
   tags: ['agentic-workflow'],
 });
 
-// ── 1. Fetch Jira ticket ────────────────────────────────────────────────────
+// ── 1. Fetch Jira ticket ──────────────────────────────────────────────────
 
 const jiraSpan = trace.span({ name: 'fetch-jira-ticket', input: { ticketKey: TICKET_KEY } });
 
@@ -80,38 +74,44 @@ console.log(`Ticket: ${TICKET_KEY} — ${summary}`);
 appendEnvFile('TICKET_SUMMARY', summary);
 appendEnvFile('TICKET_DESCRIPTION', description);
 
-// ── 2. Read repo structure and key files for context ─────────────────────
+// ── 2. Read repo structure ────────────────────────────────────────────────
 
-const repoTree = execSync('find src -type f | head -40', { encoding: 'utf8' });
+const repoTree = execSync('find src -type f | head -60', { encoding: 'utf8' });
 
-const keyFiles = ['src/app/app.ts', 'src/app/app.html', 'src/app/app.scss'];
-const fileContents = keyFiles
-  .filter(existsSync)
-  .map(f => `// ${f}\n${readFileSync(f, 'utf8')}`)
-  .join('\n\n');
-
-// ── 3. Call Claude API ────────────────────────────────────────────────────
+// ── 3. Orchestrator — plan which agents to involve ────────────────────────
 
 const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-const systemPrompt = `You are an Angular developer working on the "agentic-demo" project.
-The project uses Angular 20, standalone components, TypeScript, SCSS, and signals.
+const orchestratorPrompt = `You are a software architect orchestrating an agentic workflow for an Angular 20 project.
 
-Repo structure:
+Repository structure:
 ${repoTree}
 
-Current file contents:
-${fileContents}
+A Jira ticket needs to be implemented. Your job is to analyze it and produce an execution plan.
+
+Return ONLY a valid JSON object starting with { and ending with }. No prose, no markdown.
+
+Schema:
+{
+  "agents": [
+    {
+      "name": "frontend" | "backend" | "architect" | "styles",
+      "task": "<specific instruction for this agent>",
+      "files": ["<src/... file paths this agent should read and possibly modify>"]
+    }
+  ]
+}
 
 Rules:
-- Return ONLY a valid JSON array, starting with [ and ending with ]. No prose, no markdown, no explanation before or after.
-- Each item: { "path": "src/...", "content": "<full file content>" }
-- Stay consistent with existing code style, types, and patterns.
-- Only create or modify files inside src/.`;
+- Use only the agents that are actually needed for this ticket.
+- "frontend" handles Angular components, templates, routing.
+- "backend" handles services, API calls, data models.
+- "architect" handles project structure, new modules, config files.
+- "styles" handles SCSS only.
+- Keep the task descriptions concise and specific.
+- File paths must exist in the repo structure above or be new files under src/.`;
 
-const userPrompt = `Implement the following Jira ticket:
-
-Ticket: ${TICKET_KEY}
+const orchestratorUserPrompt = `Ticket: ${TICKET_KEY}
 Type: ${issueType}
 Priority: ${priority}
 Summary: ${summary}
@@ -119,71 +119,157 @@ Summary: ${summary}
 Description:
 ${description}
 
-Return the JSON array of file changes. Start your response with [ immediately.`;
+Produce the agent execution plan.`;
 
-const claudeGeneration = trace.generation({
-  name: 'claude-implement',
+console.log('\n[Orchestrator] Analyzing ticket...');
+
+const orchestratorGen = trace.generation({
+  name: 'orchestrator-plan',
   model: 'claude-sonnet-4-6',
   input: [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userPrompt },
+    { role: 'system', content: orchestratorPrompt },
+    { role: 'user', content: orchestratorUserPrompt },
   ],
 });
 
-const message = await client.messages.create({
+const orchestratorMsg = await client.messages.create({
   model: 'claude-sonnet-4-6',
-  max_tokens: 8096,
-  system: systemPrompt,
-  messages: [{ role: 'user', content: userPrompt }],
+  max_tokens: 2048,
+  system: orchestratorPrompt,
+  messages: [{ role: 'user', content: orchestratorUserPrompt }],
 });
 
-const rawResponse = message.content[0].text.trim();
+const rawPlan = orchestratorMsg.content[0].text.trim();
 
-claudeGeneration.end({
-  output: rawResponse,
+orchestratorGen.end({
+  output: rawPlan,
   usage: {
-    input: message.usage.input_tokens,
-    output: message.usage.output_tokens,
+    input: orchestratorMsg.usage.input_tokens,
+    output: orchestratorMsg.usage.output_tokens,
   },
 });
 
-// ── 4. Parse and apply file changes ──────────────────────────────────────
-
-let changes;
+let plan;
 try {
-  const match = rawResponse.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error('No JSON array found');
-  changes = JSON.parse(match[0]);
+  const match = rawPlan.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON object found');
+  plan = JSON.parse(match[0]);
 } catch (e) {
-  trace.update({ metadata: { error: 'non-json-response' } });
+  trace.update({ metadata: { error: 'orchestrator-non-json' } });
   await langfuse.flushAsync();
-  console.error('Claude returned non-JSON response:\n', rawResponse);
+  console.error('Orchestrator returned non-JSON response:\n', rawPlan);
   process.exit(1);
 }
 
-if (!Array.isArray(changes) || changes.length === 0) {
+console.log(`[Orchestrator] Plan: ${plan.agents.map(a => a.name).join(', ')}`);
+
+// ── 4. Run sub-agents sequentially ───────────────────────────────────────
+
+const allChanges = new Map(); // path → content (last agent wins on conflict)
+
+for (const agent of plan.agents) {
+  console.log(`\n[Agent: ${agent.name}] Task: ${agent.task}`);
+
+  const agentFiles = (agent.files ?? [])
+    .filter(f => existsSync(f))
+    .map(f => `// ${f}\n${readFileSync(f, 'utf8')}`)
+    .join('\n\n');
+
+  // Include any files already changed by previous agents
+  const pendingChanges = [...allChanges.entries()]
+    .map(([p, c]) => `// ${p} (modified by previous agent)\n${c}`)
+    .join('\n\n');
+
+  const agentSystemPrompt = `You are a "${agent.name}" specialist in an Angular 20 project.
+The project uses Angular 20, standalone components, TypeScript, SCSS, and signals.
+
+Repository structure:
+${repoTree}
+
+${agentFiles ? `Relevant current files:\n${agentFiles}` : ''}
+${pendingChanges ? `\nFiles already modified by previous agents (use as updated baseline):\n${pendingChanges}` : ''}
+
+Rules:
+- Return ONLY a valid JSON array, starting with [ and ending with ]. No prose, no markdown.
+- Each item: { "path": "src/...", "content": "<full file content>" }
+- Only create or modify files inside src/.
+- Stay consistent with existing code style, types, and patterns.`;
+
+  const agentUserPrompt = `You are responsible for the "${agent.name}" part of this ticket:
+
+Ticket: ${TICKET_KEY} — ${summary}
+Your specific task: ${agent.task}
+
+Return the JSON array of file changes.`;
+
+  const agentGen = trace.generation({
+    name: `agent-${agent.name}`,
+    model: 'claude-sonnet-4-6',
+    input: [
+      { role: 'system', content: agentSystemPrompt },
+      { role: 'user', content: agentUserPrompt },
+    ],
+    metadata: { agentRole: agent.name },
+  });
+
+  const agentMsg = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8096,
+    system: agentSystemPrompt,
+    messages: [{ role: 'user', content: agentUserPrompt }],
+  });
+
+  const rawAgentResponse = agentMsg.content[0].text.trim();
+
+  agentGen.end({
+    output: rawAgentResponse,
+    usage: {
+      input: agentMsg.usage.input_tokens,
+      output: agentMsg.usage.output_tokens,
+    },
+  });
+
+  let agentChanges;
+  try {
+    const match = rawAgentResponse.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('No JSON array found');
+    agentChanges = JSON.parse(match[0]);
+  } catch (e) {
+    console.warn(`[Agent: ${agent.name}] Returned non-JSON, skipping.`);
+    continue;
+  }
+
+  for (const { path, content } of agentChanges) {
+    if (!path.startsWith('src/')) {
+      console.warn(`  Skipping out-of-scope path: ${path}`);
+      continue;
+    }
+    allChanges.set(path, content);
+    console.log(`  Queued: ${path}`);
+  }
+}
+
+// ── 5. Write all changes ──────────────────────────────────────────────────
+
+if (allChanges.size === 0) {
   trace.update({ metadata: { error: 'empty-changes' } });
   await langfuse.flushAsync();
-  console.error('No file changes returned by Claude.');
+  console.error('No file changes from any agent.');
   process.exit(1);
 }
 
 const writtenFiles = [];
-for (const { path, content } of changes) {
-  if (!path.startsWith('src/')) {
-    console.warn(`Skipping out-of-scope path: ${path}`);
-    continue;
-  }
+for (const [path, content] of allChanges) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
   writtenFiles.push(path);
-  console.log(`  Written: ${path}`);
+  console.log(`Written: ${path}`);
 }
 
-trace.update({ output: { filesChanged: writtenFiles } });
+trace.update({ output: { filesChanged: writtenFiles, agents: plan.agents.map(a => a.name) } });
 await langfuse.flushAsync();
 
-console.log(`\nDone — ${changes.length} file(s) changed.`);
+console.log(`\nDone — ${writtenFiles.length} file(s) changed by ${plan.agents.length} agent(s).`);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 

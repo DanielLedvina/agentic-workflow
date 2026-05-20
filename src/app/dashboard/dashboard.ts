@@ -1,10 +1,10 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, JsonPipe } from '@angular/common';
 import { LangfuseService, LangfuseTrace, LangfuseObservation } from './langfuse.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [DatePipe],
+  imports: [DatePipe, JsonPipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
