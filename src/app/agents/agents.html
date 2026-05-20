@@ -1,0 +1,151 @@
+<div class="agents">
+  <div class="agents__header">
+    <h1 class="agents__title">Agents</h1>
+    <button
+      class="agents__add-btn"
+      (click)="openAddForm()"
+      [disabled]="adding()"
+    >
+      + Add Agent
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="agents__loading">Loading agents&hellip;</div>
+  }
+
+  @if (loadError()) {
+    <div class="agents__error">{{ loadError() }}</div>
+  }
+
+  @if (adding()) {
+    <div class="agents__add-form">
+      <h2 class="agents__add-form-title">New Agent</h2>
+      <div class="agents__form-row">
+        <label class="agents__form-label" for="new-name">Name</label>
+        <input
+          id="new-name"
+          class="agents__form-input"
+          type="text"
+          placeholder="Agent name"
+          [value]="newName()"
+          (input)="updateNewName($any($event.target).value)"
+        />
+      </div>
+      <div class="agents__form-row">
+        <label class="agents__form-label" for="new-system-prompt">System Prompt</label>
+        <textarea
+          id="new-system-prompt"
+          class="agents__form-textarea"
+          placeholder="System prompt&hellip;"
+          rows="4"
+          [value]="newSystemPrompt()"
+          (input)="updateNewSystemPrompt($any($event.target).value)"
+        ></textarea>
+      </div>
+      @if (addError()) {
+        <div class="agents__form-error">{{ addError() }}</div>
+      }
+      <div class="agents__form-actions">
+        <button
+          class="agents__btn agents__btn--primary"
+          (click)="saveNewAgent()"
+          [disabled]="addSaving()"
+        >
+          {{ addSaving() ? 'Saving&hellip;' : 'Save' }}
+        </button>
+        <button
+          class="agents__btn agents__btn--secondary"
+          (click)="cancelAdd()"
+          [disabled]="addSaving()"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (!loading() && !loadError() && rows().length === 0 && !adding()) {
+    <div class="agents__empty">No agents found. Click &ldquo;+ Add Agent&rdquo; to create one.</div>
+  }
+
+  @if (rows().length > 0) {
+    <div class="agents__table-wrapper">
+      <table class="agents__table">
+        <thead>
+          <tr>
+            <th class="agents__th">Name</th>
+            <th class="agents__th agents__th--center">Sessions</th>
+            <th class="agents__th agents__th--center">Tokens Spent</th>
+            <th class="agents__th">System Prompt</th>
+            <th class="agents__th agents__th--actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.id) {
+            <tr class="agents__tr" [class.agents__tr--editing]="row.editing">
+              <td class="agents__td agents__td--name">
+                @if (row.editing) {
+                  <input
+                    class="agents__cell-input"
+                    type="text"
+                    [value]="row.editName"
+                    (input)="updateRowEditName(row, $any($event.target).value)"
+                    placeholder="Agent name"
+                  />
+                } @else {
+                  <span class="agents__cell-text">{{ row.name }}</span>
+                }
+              </td>
+              <td class="agents__td agents__td--center">{{ row.sessions }}</td>
+              <td class="agents__td agents__td--center">{{ row.tokensSpent | number }}</td>
+              <td class="agents__td agents__td--prompt">
+                @if (row.editing) {
+                  <textarea
+                    class="agents__cell-textarea"
+                    rows="3"
+                    [value]="row.editSystemPrompt"
+                    (input)="updateRowEditSystemPrompt(row, $any($event.target).value)"
+                    placeholder="System prompt&hellip;"
+                  ></textarea>
+                } @else {
+                  <span class="agents__cell-text agents__cell-text--prompt">{{ row.systemPrompt || '—' }}</span>
+                }
+              </td>
+              <td class="agents__td agents__td--actions">
+                @if (row.editing) {
+                  <div class="agents__row-actions">
+                    @if (row.error) {
+                      <span class="agents__row-error">{{ row.error }}</span>
+                    }
+                    <button
+                      class="agents__btn agents__btn--primary agents__btn--sm"
+                      (click)="saveEdit(row)"
+                      [disabled]="row.saving"
+                    >
+                      {{ row.saving ? 'Saving…' : 'Save' }}
+                    </button>
+                    <button
+                      class="agents__btn agents__btn--secondary agents__btn--sm"
+                      (click)="cancelEdit(row)"
+                      [disabled]="row.saving"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                } @else {
+                  <button
+                    class="agents__btn agents__btn--ghost agents__btn--sm"
+                    (click)="startEdit(row)"
+                  >
+                    Edit
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
