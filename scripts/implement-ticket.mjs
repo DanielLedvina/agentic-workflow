@@ -98,19 +98,19 @@ const message = await client.messages.create({
   model: 'claude-sonnet-4-6',
   max_tokens: 8096,
   system: systemPrompt,
-  messages: [
-    { role: 'user', content: userPrompt },
-    { role: 'assistant', content: '[' },
-  ],
+  messages: [{ role: 'user', content: userPrompt }],
 });
 
-const rawResponse = '[' + message.content[0].text.trim();
+const rawResponse = message.content[0].text.trim();
 
 // ── 4. Parse and apply file changes ──────────────────────────────────────
 
 let changes;
 try {
-  changes = JSON.parse(rawResponse);
+  // Extract JSON array even if Claude prepends explanation text
+  const match = rawResponse.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('No JSON array found');
+  changes = JSON.parse(match[0]);
 } catch (e) {
   console.error('Claude returned non-JSON response:\n', rawResponse);
   process.exit(1);
