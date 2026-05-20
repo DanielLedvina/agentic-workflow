@@ -1,0 +1,385 @@
+.agents {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  gap: 1.5rem;
+  min-height: 100vh;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid #21262d;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #e6edf3;
+  }
+
+  &__add-btn {
+    padding: 6px 14px;
+    background: #1f6feb;
+    color: #e6edf3;
+    border: 1px solid #388bfd;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover:not(:disabled) {
+      background: #388bfd;
+      border-color: #58a6ff;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__loading,
+  &__empty {
+    color: #8b949e;
+    font-size: 13px;
+    padding: 24px 0;
+    text-align: center;
+  }
+
+  &__error {
+    color: #f85149;
+    font-size: 13px;
+    background: #4a1a1a;
+    border: 1px solid #6e2020;
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+
+  // ── Add-agent form ──────────────────────────────────────────────────────────
+
+  &__add-form {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 560px;
+  }
+
+  &__add-form-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e6edf3;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  &__form-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8b949e;
+  }
+
+  &__form-input,
+  &__form-textarea {
+    padding: 7px 10px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #e6edf3;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.15s;
+
+    &::placeholder {
+      color: #484f58;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #388bfd;
+    }
+  }
+
+  &__form-error {
+    color: #f85149;
+    font-size: 12px;
+  }
+
+  &__form-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  // ── Table ───────────────────────────────────────────────────────────────────
+
+  &__table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid #21262d;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #0d1117;
+  }
+
+  &__th {
+    text-align: left;
+    padding: 10px 16px;
+    background: #161b22;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8b949e;
+    border-bottom: 1px solid #21262d;
+    white-space: nowrap;
+
+    &--center {
+      text-align: center;
+    }
+
+    &--actions {
+      text-align: right;
+    }
+  }
+
+  &__tr {
+    transition: background 0.1s;
+
+    &:hover {
+      background: #161b22;
+    }
+
+    &--editing {
+      background: #111d2e;
+
+      &:hover {
+        background: #111d2e;
+      }
+    }
+
+    & + & {
+      border-top: 1px solid #21262d;
+    }
+  }
+
+  &__td {
+    padding: 12px 16px;
+    vertical-align: top;
+    color: #e6edf3;
+
+    &--center {
+      text-align: center;
+    }
+
+    &--name {
+      min-width: 160px;
+      font-weight: 500;
+    }
+
+    &--prompt {
+      min-width: 200px;
+      max-width: 360px;
+    }
+
+    &--actions {
+      text-align: right;
+      white-space: nowrap;
+      min-width: 120px;
+    }
+  }
+
+  // ── Stat badges (sessions / tokens) ─────────────────────────────────────────
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #21262d;
+    color: #8b949e;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    min-width: 32px;
+    line-height: 1.6;
+
+    &--sessions {
+      color: #3fb950;
+      background: #1a4f2a;
+      border-color: #2ea043;
+    }
+
+    &--tokens {
+      color: #d29922;
+      background: #2a2a1a;
+      border-color: #9e6a03;
+    }
+  }
+
+  // ── Inline cell editors ─────────────────────────────────────────────────────
+
+  &__cell-input {
+    width: 100%;
+    padding: 5px 8px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    color: #e6edf3;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+
+    &::placeholder {
+      color: #484f58;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #388bfd;
+    }
+  }
+
+  &__cell-textarea {
+    width: 100%;
+    padding: 5px 8px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    color: #e6edf3;
+    font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+
+    &::placeholder {
+      color: #484f58;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: #388bfd;
+    }
+  }
+
+  // ── Cell text display ────────────────────────────────────────────────────────
+
+  &__cell-text {
+    display: block;
+    word-break: break-word;
+    color: #e6edf3;
+
+    &--prompt {
+      white-space: pre-wrap;
+      font-size: 12px;
+      color: #8b949e;
+      max-height: 72px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+  }
+
+  // ── Row action area ──────────────────────────────────────────────────────────
+
+  &__row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__row-error {
+    color: #f85149;
+    font-size: 11px;
+    flex: 1 1 100%;
+    text-align: right;
+  }
+
+  // ── Shared button styles ─────────────────────────────────────────────────────
+
+  &__btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    font-family: inherit;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &--sm {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    &--primary {
+      background: #1f6feb;
+      color: #e6edf3;
+      border-color: #388bfd;
+
+      &:hover:not(:disabled) {
+        background: #388bfd;
+        border-color: #58a6ff;
+      }
+    }
+
+    &--secondary {
+      background: #21262d;
+      color: #e6edf3;
+      border-color: #30363d;
+
+      &:hover:not(:disabled) {
+        background: #30363d;
+        border-color: #484f58;
+      }
+    }
+
+    &--ghost {
+      background: transparent;
+      color: #388bfd;
+      border-color: transparent;
+
+      &:hover:not(:disabled) {
+        background: #161b22;
+        border-color: #30363d;
+      }
+    }
+  }
+}
