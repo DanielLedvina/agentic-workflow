@@ -12,6 +12,7 @@ const {
   LANGFUSE_PUBLIC_KEY,
   LANGFUSE_BASE_URL,
   TICKET_KEY,
+  FEEDBACK_COMMENT,
 } = process.env;
 
 if (!TICKET_KEY) {
@@ -72,22 +73,28 @@ if (reporterEmail !== JIRA_EMAIL) {
 
 console.log(`Ticket: ${TICKET_KEY} — ${summary}`);
 
-// ── 2. Check if plan comment already exists (avoid duplicates) ────────────
+// ── 2. Fetch existing comments — find previous plan + feedback ───────────
 
 const commentsRes = await fetch(
   `${JIRA_BASE_URL}/rest/api/3/issue/${TICKET_KEY}/comment`,
   { headers: jiraHeaders }
 );
 const commentsData = await commentsRes.json();
-const alreadyPlanned = commentsData.comments?.some(
-  c => c.body?.content?.[0]?.content?.[0]?.text?.startsWith('🤖 *Orchestrátor*')
+const comments = commentsData.comments ?? [];
+
+const previousPlanComment = comments.findLast(
+  c => extractAdfText(c.body).startsWith('🤖 *Orchestrátor*')
 );
 
-if (alreadyPlanned) {
+// If triggered by a ticket update (not feedback), skip if plan already exists
+if (!FEEDBACK_COMMENT && previousPlanComment) {
   console.log('Plan comment already exists, skipping orchestration.');
   await langfuse.flushAsync();
   process.exit(0);
 }
+
+const previousPlanText = previousPlanComment ? extractAdfText(previousPlanComment.body) : null;
+const feedbackText = FEEDBACK_COMMENT ?? null;
 
 // ── 3. Read repo structure ────────────────────────────────────────────────
 
@@ -118,13 +125,21 @@ Schema:
   "summary": "<1-2 sentence human-readable summary of the plan>"
 }
 
-Rules:
-- Use only the agents actually needed.
-- "frontend" handles Angular components, templates, routing.
-- "backend" handles services, API calls, data models.
-- "architect" handles project structure, new modules, config files.
-- "styles" handles SCSS only.
-- Keep task descriptions concise and specific.`;
+Agent responsibilities:
+- "architect": project structure, new modules, new routes in app.routes.ts, new config files. Only needed when creating a brand new feature area or restructuring the project.
+- "backend": services, API calls, data models, dependency injection. Only needed when the ticket requires fetching data, a new service, or business logic.
+- "frontend": Angular components (.ts + .html), routing changes, consuming services. Needed for any UI work.
+- "styles": SCSS only. Only needed when there are significant styling changes beyond trivial inline styles.
+
+Minimum agents rule — use the fewest agents that can correctly implement the ticket:
+- Simple CSS fix → ["styles"]
+- Text/label change → ["frontend"]
+- New page with data → ["architect", "backend", "frontend", "styles"]
+- New page, static content → ["architect", "frontend", "styles"]
+- Bug in a component → ["frontend"]
+- New API service only → ["backend"]
+
+Never include an agent unless the ticket explicitly requires their area of responsibility.`;
 
 const userPrompt = `Ticket: ${TICKET_KEY}
 Type: ${issueType}
@@ -133,8 +148,8 @@ Summary: ${summary}
 
 Description:
 ${description}
-
-Produce the agent execution plan.`;
+${previousPlanText ? `\nPrevious plan (that the user reviewed):\n${previousPlanText}` : ''}
+${feedbackText ? `\nUser feedback on the previous plan:\n${feedbackText}\n\nRevise the plan based on this feedback.` : '\nProduce the agent execution plan.'}`.trim();
 
 const gen = trace.generation({
   name: 'orchestrator-plan',
@@ -206,7 +221,9 @@ const commentBody = {
         content: [
           { type: 'text', text: 'Napiš ' },
           { type: 'text', text: 'approve', marks: [{ type: 'code' }] },
-          { type: 'text', text: ' do komentáře pro spuštění implementace.' },
+          { type: 'text', text: ' pro spuštění implementace, nebo ' },
+          { type: 'text', text: 'feedback: <tvoje připomínka>', marks: [{ type: 'code' }] },
+          { type: 'text', text: ' pro úpravu plánu.' },
         ],
       },
     ],
@@ -229,6 +246,19 @@ trace.update({ metadata: { planPosted: true, agents: plan.agents.map(a => a.name
 await langfuse.flushAsync();
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+function extractAdfText(adf) {
+  if (!adf) return '';
+  if (typeof adf === 'string') return adf;
+  const lines = [];
+  for (const block of adf.content ?? []) {
+    for (const inline of block.content ?? []) {
+      if (inline.type === 'text') lines.push(inline.text);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
 
 function extractDescription(adf) {
   if (!adf) return '(no description)';
