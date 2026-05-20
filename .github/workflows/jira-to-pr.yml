@@ -38,7 +38,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: feature/${{ github.event.client_payload.ticket_key }}
-          title: "${{ github.event.client_payload.ticket_key }}: ${{ env.TICKET_SUMMARY }}"
+          title: 'feat(${{ github.event.client_payload.ticket_key }}): implement ticket'
           body: |
             ## Jira Ticket
             **[${{ github.event.client_payload.ticket_key }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ github.event.client_payload.ticket_key }})**
@@ -47,5 +47,5 @@ jobs:
 
             ---
             > Automatically implemented by Claude via agentic workflow.
-          commit-message: "feat(${{ github.event.client_payload.ticket_key }}): implement ticket"
+          commit-message: 'feat(${{ github.event.client_payload.ticket_key }}): implement ticket'
           labels: claude-generated
