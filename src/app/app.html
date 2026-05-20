@@ -1,1 +1,18 @@
+<header class="app-header">
+  <div class="app-header__logo">MyApp</div>
+  <button
+    class="app-header__theme-toggle"
+    (click)="toggleDarkMode()"
+    [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+    [attr.title]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <span class="app-header__theme-toggle-icon">
+      {{ isDarkMode() ? '☀️' : '🌙' }}
+    </span>
+    <span class="app-header__theme-toggle-label">
+      {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
+    </span>
+  </button>
+</header>
+
 <router-outlet />
