@@ -1,0 +1,44 @@
+<div class="board-wrapper">
+  <header class="board-header">
+    <div class="project-info">
+      <div class="project-avatar">AG</div>
+      <div>
+        <h1>Agentic Demo</h1>
+        <span class="project-key">Software project</span>
+      </div>
+    </div>
+    <div class="board-meta">
+      <span class="sprint-label">Sprint 1</span>
+      <span class="ticket-count">{{ tickets().length }} issues</span>
+    </div>
+  </header>
+
+  <div class="board">
+    @for (column of columns; track column) {
+      <div class="column">
+        <div class="column-header">
+          <span class="column-title">{{ column }}</span>
+          <span class="column-count">{{ getTicketsByStatus(column).length }}</span>
+        </div>
+
+        <div class="tickets">
+          @for (ticket of getTicketsByStatus(column); track ticket.key) {
+            <div class="ticket" [class]="'ticket--' + ticket.status.toLowerCase().replace(' ', '-')">
+              <div class="ticket-top">
+                <span class="ticket-type" [class]="'type--' + ticket.type.toLowerCase()">{{ ticket.type }}</span>
+                <span class="ticket-priority" [class]="'priority--' + ticket.priority.toLowerCase()">{{ ticket.priority }}</span>
+              </div>
+              <p class="ticket-summary">{{ ticket.summary }}</p>
+              <div class="ticket-bottom">
+                <span class="ticket-key">{{ ticket.key }}</span>
+                <span class="ticket-assignee">{{ ticket.assignee }}</span>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-column">No issues</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

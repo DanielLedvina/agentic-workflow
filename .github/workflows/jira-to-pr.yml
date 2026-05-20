@@ -1,0 +1,51 @@
+name: Jira → Claude → PR
+
+on:
+  repository_dispatch:
+    types: [jira-implement]
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch Jira ticket & run Claude
+        id: claude
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TICKET_KEY: ${{ github.event.client_payload.ticket_key }}
+        run: node scripts/implement-ticket.mjs
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: feature/${{ github.event.client_payload.ticket_key }}
+          title: "${{ github.event.client_payload.ticket_key }}: ${{ env.TICKET_SUMMARY }}"
+          body: |
+            ## Jira Ticket
+            **[${{ github.event.client_payload.ticket_key }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ github.event.client_payload.ticket_key }})**
+
+            ${{ env.TICKET_DESCRIPTION }}
+
+            ---
+            > Automatically implemented by Claude via agentic workflow.
+          commit-message: "feat(${{ github.event.client_payload.ticket_key }}): implement ticket"
+          labels: claude-generated
