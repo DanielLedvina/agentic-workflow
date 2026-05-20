@@ -6,7 +6,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { execSync } from 'child_process';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { dirname } from 'path';
 
 const {
@@ -53,9 +53,15 @@ console.log(`Ticket: ${TICKET_KEY} — ${summary}`);
 appendEnvFile('TICKET_SUMMARY', summary);
 appendEnvFile('TICKET_DESCRIPTION', description);
 
-// ── 2. Read repo structure for context ────────────────────────────────────
+// ── 2. Read repo structure and key files for context ─────────────────────
 
 const repoTree = execSync('find src -type f | head -40', { encoding: 'utf8' });
+
+const keyFiles = ['src/app/app.ts', 'src/app/app.html', 'src/app/app.scss'];
+const fileContents = keyFiles
+  .filter(existsSync)
+  .map(f => `// ${f}\n${readFileSync(f, 'utf8')}`)
+  .join('\n\n');
 
 // ── 3. Call Claude API ────────────────────────────────────────────────────
 
@@ -67,11 +73,14 @@ The project uses Angular 20, standalone components, TypeScript, SCSS, and signal
 Repo structure:
 ${repoTree}
 
-When implementing a ticket:
-1. Return ONLY a JSON array of file changes — no prose, no markdown fences.
-2. Each item: { "path": "src/...", "content": "<full file content>" }
-3. Stay consistent with existing code style.
-4. Only create or modify files inside src/.`;
+Current file contents:
+${fileContents}
+
+Rules:
+- Return ONLY a valid JSON array, starting with [ and ending with ]. No prose, no markdown, no explanation before or after.
+- Each item: { "path": "src/...", "content": "<full file content>" }
+- Stay consistent with existing code style, types, and patterns.
+- Only create or modify files inside src/.`;
 
 const userPrompt = `Implement the following Jira ticket:
 
@@ -83,24 +92,25 @@ Summary: ${summary}
 Description:
 ${description}
 
-Return the JSON array of file changes.`;
+Return the JSON array of file changes. Start your response with [ immediately.`;
 
 const message = await client.messages.create({
   model: 'claude-sonnet-4-6',
   max_tokens: 8096,
   system: systemPrompt,
-  messages: [{ role: 'user', content: userPrompt }],
+  messages: [
+    { role: 'user', content: userPrompt },
+    { role: 'assistant', content: '[' },
+  ],
 });
 
-const rawResponse = message.content[0].text.trim();
+const rawResponse = '[' + message.content[0].text.trim();
 
 // ── 4. Parse and apply file changes ──────────────────────────────────────
 
 let changes;
 try {
-  // Strip accidental markdown code fences if present
-  const cleaned = rawResponse.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-  changes = JSON.parse(cleaned);
+  changes = JSON.parse(rawResponse);
 } catch (e) {
   console.error('Claude returned non-JSON response:\n', rawResponse);
   process.exit(1);
