@@ -40,6 +40,9 @@ if (!data.ok) {
 
 const messages = data.messages ?? [];
 console.log(`Found ${messages.length} messages in last 10 minutes.`);
+for (const msg of messages) {
+  console.log(`  [${msg.bot_id ? 'BOT' : 'USER'}] text="${msg.text}" bot_id=${msg.bot_id ?? 'none'}`);
+}
 
 let action = 'none';
 let ticketKey = '';
