@@ -11,6 +11,9 @@ const {
   LANGFUSE_SECRET_KEY,
   LANGFUSE_PUBLIC_KEY,
   LANGFUSE_BASE_URL,
+  SLACK_WEBHOOK_URL,
+  SLACK_BOT_TOKEN,
+  SLACK_CHANNEL,
   TICKET_KEY,
   FEEDBACK_COMMENT,
 } = process.env;
@@ -185,13 +188,58 @@ try {
 
 console.log(`Plan: ${plan.agents.map(a => a.name).join(', ')}`);
 
-// ── 5. Write plan as Jira comment ─────────────────────────────────────────
+// ── 5. Post plan to Slack ─────────────────────────────────────────────────
 
-const agentLines = plan.agents.map(
-  a => `• *${a.name}*: ${a.task}`
-).join('\n');
+const agentBlocks = plan.agents.map(a => ({
+  type: 'section',
+  text: { type: 'mrkdwn', text: `*${a.name}:* ${a.task}` },
+}));
 
-// Jira uses Atlassian Document Format (ADF) for comment body
+const slackMessage = {
+  text: `🤖 Orchestrátor — *${TICKET_KEY}*`,
+  blocks: [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `🤖 Orchestrátor — ${TICKET_KEY}` },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: plan.summary },
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: '*Plán agentů:*' },
+    },
+    ...agentBlocks,
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `Napiš \`approve\` pro spuštění implementace, nebo \`feedback: <připomínka>\` pro úpravu plánu.\n_Ticket: ${JIRA_BASE_URL}/browse/${TICKET_KEY}_`,
+      },
+    },
+  ],
+};
+
+if (SLACK_WEBHOOK_URL) {
+  const slackRes = await fetch(SLACK_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(slackMessage),
+  });
+  if (slackRes.ok) {
+    console.log('Plan posted to Slack.');
+  } else {
+    console.error(`Failed to post to Slack: ${slackRes.status}`);
+  }
+} else {
+  console.warn('SLACK_WEBHOOK_URL not set, skipping Slack notification.');
+}
+
+// ── 6. Also write plan as Jira comment (as backup) ───────────────────────
+
 const commentBody = {
   body: {
     type: 'doc',
@@ -219,11 +267,11 @@ const commentBody = {
       {
         type: 'paragraph',
         content: [
-          { type: 'text', text: 'Napiš ' },
+          { type: 'text', text: 'Odpověz ve Slacku nebo napiš ' },
           { type: 'text', text: 'approve', marks: [{ type: 'code' }] },
-          { type: 'text', text: ' pro spuštění implementace, nebo ' },
-          { type: 'text', text: 'feedback: <tvoje připomínka>', marks: [{ type: 'code' }] },
-          { type: 'text', text: ' pro úpravu plánu.' },
+          { type: 'text', text: ' / ' },
+          { type: 'text', text: 'feedback: <připomínka>', marks: [{ type: 'code' }] },
+          { type: 'text', text: ' do komentáře.' },
         ],
       },
     ],
@@ -236,8 +284,7 @@ const commentRes = await fetch(
 );
 
 if (!commentRes.ok) {
-  const err = await commentRes.text();
-  console.error(`Failed to post Jira comment: ${commentRes.status} ${err}`);
+  console.error(`Failed to post Jira comment: ${commentRes.status}`);
 } else {
   console.log('Plan posted to Jira as comment.');
 }

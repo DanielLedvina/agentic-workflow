@@ -1,0 +1,48 @@
+name: Slack → Poll for approve/feedback
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Poll Slack channel
+        id: poll
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: node scripts/slack-poll.mjs
+
+      - name: Trigger approve
+        if: steps.poll.outputs.SLACK_ACTION == 'approve'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            -f event_type=jira-approved \
+            -f client_payload[ticket_key]=${{ steps.poll.outputs.SLACK_TICKET_KEY }}
+
+      - name: Trigger feedback
+        if: steps.poll.outputs.SLACK_ACTION == 'feedback'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/dispatches \
+            -f event_type=jira-feedback \
+            -f "client_payload[ticket_key]=${{ steps.poll.outputs.SLACK_TICKET_KEY }}" \
+            -f "client_payload[feedback]=${{ steps.poll.outputs.SLACK_FEEDBACK_TEXT }}"
