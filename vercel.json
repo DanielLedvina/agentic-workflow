@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/slack-events.js": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}
