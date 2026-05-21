@@ -31,7 +31,7 @@ jobs:
       - name: Trigger approve
         if: steps.poll.outputs.SLACK_ACTION == 'approve'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh api repos/${{ github.repository }}/dispatches \
             -f event_type=jira-approved \
@@ -40,7 +40,7 @@ jobs:
       - name: Trigger feedback
         if: steps.poll.outputs.SLACK_ACTION == 'feedback'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh api repos/${{ github.repository }}/dispatches \
             -f event_type=jira-feedback \
