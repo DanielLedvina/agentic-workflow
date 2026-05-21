@@ -1,101 +1,172 @@
 .dashboard {
-  min-height: 100vh;
-  background: #0d1117;
-  color: #e6edf3;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.5rem;
+  gap: 1.25rem;
 }
 
 .dash-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid #21262d;
   display: flex;
   align-items: center;
   justify-content: space-between;
 
   h1 {
-    font-size: 18px;
+    font-size: 1.5rem;
     font-weight: 600;
-    color: #e6edf3;
+    margin: 0;
   }
 }
 
 .btn-refresh {
-  background: #21262d;
-  color: #e6edf3;
-  border: 1px solid #30363d;
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.875rem;
 
   &:hover {
-    background: #30363d;
+    background: #f5f5f5;
   }
 }
 
+// ── Token Usage Summary Card ───────────────────────────────────────────────────
+.summary-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border: none;
+  border-radius: 10px;
+  padding: 1.25rem 1.75rem;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.28), 0 1px 4px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+
+  // Subtle decorative glow in the top-right corner
+  &::after {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    flex: 1 1 140px;
+    padding: 0.25rem 1.25rem;
+    position: relative;
+
+    // Vertical divider between items
+    & + & {
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    // Remove left padding from the first item so text aligns with card edge
+    &:first-child {
+      padding-left: 0;
+    }
+  }
+
+  &__label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  &__value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 .state-message {
-  padding: 48px;
+  padding: 2rem;
   text-align: center;
-  color: #8b949e;
+  color: #666;
 
   &--error {
-    color: #f85149;
+    color: #c00;
   }
 }
 
 .dash-body {
   display: grid;
   grid-template-columns: 320px 1fr;
-  height: calc(100vh - 65px);
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
 }
 
-.traces-panel {
-  border-right: 1px solid #21262d;
+.traces-panel,
+.detail-panel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
   overflow-y: auto;
-  padding: 16px;
 
   h2 {
-    font-size: 13px;
+    font-size: 1rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #8b949e;
-    margin-bottom: 12px;
+    margin: 0 0 0.75rem;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
   }
 
-  .count {
-    background: #21262d;
-    padding: 1px 7px;
-    border-radius: 10px;
-    font-size: 11px;
+  h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem;
   }
+}
+
+.count {
+  background: #eee;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .trace-list {
   list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.5rem;
 }
 
 .trace-item {
-  padding: 12px;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
-  border: 1px solid #21262d;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s;
+  transition: background 0.15s;
 
   &:hover {
-    background: #161b22;
-    border-color: #30363d;
+    background: #fafafa;
   }
 
   &--active {
-    background: #161b22;
-    border-color: #388bfd;
+    border-color: #4f46e5;
+    background: #f0efff;
   }
 }
 
@@ -103,81 +174,73 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .ticket-key {
-  font-size: 12px;
-  font-weight: 700;
-  color: #388bfd;
+  font-weight: 600;
+  font-size: 0.875rem;
 }
 
 .trace-name {
-  font-size: 13px;
-  color: #e6edf3;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: #444;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trace-time {
-  font-size: 11px;
-  color: #8b949e;
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 0.25rem;
 }
 
 .trace-status {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
   text-transform: uppercase;
-  padding: 2px 7px;
-  border-radius: 10px;
 
   &.status--success {
-    background: #1a4f2a;
-    color: #3fb950;
+    background: #d1fae5;
+    color: #065f46;
   }
 
   &.status--error {
-    background: #4a1a1a;
-    color: #f85149;
+    background: #fee2e2;
+    color: #991b1b;
   }
 
   &.status--skipped {
-    background: #2a2a1a;
-    color: #d29922;
+    background: #fef3c7;
+    color: #92400e;
   }
-}
-
-.detail-panel {
-  padding: 24px;
-  overflow-y: auto;
 }
 
 .detail-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 
   h2 {
-    font-size: 20px;
-    font-weight: 600;
+    margin: 0;
   }
 }
 
 .meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #161b22;
-  border-radius: 8px;
-  border: 1px solid #21262d;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .meta-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.2rem;
 
   &--full {
     grid-column: 1 / -1;
@@ -185,55 +248,46 @@
 }
 
 .meta-label {
-  font-size: 11px;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  color: #8b949e;
-  font-weight: 600;
   letter-spacing: 0.05em;
+  color: #888;
 }
 
 .output-pre {
-  font-size: 12px;
-  color: #7ee787;
-  background: #0d1117;
-  padding: 10px;
+  background: #f5f5f5;
   border-radius: 4px;
+  padding: 0.5rem;
+  font-size: 0.75rem;
   overflow-x: auto;
   margin: 0;
 }
 
-h3 {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #8b949e;
-  margin-bottom: 12px;
-}
-
 .obs-list {
   list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0.4rem;
 }
 
 .obs-item {
-  padding: 12px 16px;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  border-left: 3px solid #30363d;
-  background: #161b22;
+  border-left: 3px solid #ccc;
+  background: #fafafa;
 
   &--generation {
-    border-left-color: #388bfd;
+    border-left-color: #4f46e5;
   }
 
   &--span {
-    border-left-color: #3fb950;
+    border-left-color: #0ea5e9;
   }
 
   &--event {
-    border-left-color: #d29922;
+    border-left-color: #f59e0b;
   }
 }
 
@@ -241,37 +295,34 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
 }
 
 .obs-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .obs-type {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  color: #8b949e;
-  background: #21262d;
-  padding: 2px 7px;
-  border-radius: 4px;
+  color: #888;
 }
 
 .obs-model {
-  font-size: 12px;
-  color: #8b949e;
+  font-size: 0.75rem;
+  color: #555;
+  margin-top: 0.2rem;
 }
 
 .obs-error {
-  font-size: 12px;
-  color: #f85149;
-  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #c00;
+  margin-top: 0.2rem;
 }
 
 .empty {
-  color: #8b949e;
-  font-size: 14px;
-  padding: 24px 0;
+  color: #aaa;
+  font-size: 0.875rem;
+  padding: 1rem 0;
+  text-align: center;
 }

@@ -1,10 +1,10 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { DatePipe, JsonPipe } from '@angular/common';
-import { LangfuseService, LangfuseTrace, LangfuseObservation } from './langfuse.service';
+import { DatePipe, JsonPipe, DecimalPipe } from '@angular/common';
+import { LangfuseService, LangfuseTrace, LangfuseObservation, TokenUsageSummary } from './langfuse.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [DatePipe, JsonPipe],
+  imports: [DatePipe, JsonPipe, DecimalPipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
@@ -16,9 +16,11 @@ export class Dashboard implements OnInit {
   observations = signal<LangfuseObservation[]>([]);
   loading = signal(true);
   error = signal<string | null>(null);
+  totalTokensUsed = signal<TokenUsageSummary | null>(null);
 
   ngOnInit() {
     this.loadTraces();
+    this.loadTokenUsageSummary();
   }
 
   loadTraces() {
@@ -32,6 +34,14 @@ export class Dashboard implements OnInit {
       error: (e) => {
         this.error.set('Failed to load traces. Check your Langfuse credentials.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  loadTokenUsageSummary() {
+    this.langfuse.getTokenUsageSummary().subscribe({
+      next: (summary) => {
+        this.totalTokensUsed.set(summary);
       },
     });
   }

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, switchMap, forkJoin, of } from 'rxjs';
 
 export interface LangfuseTrace {
   id: string;
@@ -24,6 +24,12 @@ export interface LangfuseObservation {
   level?: string;
   model?: string;
   usage?: { input: number; output: number };
+}
+
+export interface TokenUsageSummary {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -53,5 +59,39 @@ export class LangfuseService {
         { headers: this.headers }
       )
       .pipe(map((r) => r.data ?? []));
+  }
+
+  /**
+   * Aggregates total token usage (input + output) across all observations
+   * for all traces tagged with 'agentic-workflow'.
+   *
+   * @returns Observable<TokenUsageSummary> containing the aggregated token counts.
+   */
+  getTokenUsageSummary(): Observable<TokenUsageSummary> {
+    return this.getTraces().pipe(
+      switchMap((traces) => {
+        if (traces.length === 0) {
+          return of([]);
+        }
+        return forkJoin(
+          traces.map((trace) => this.getObservations(trace.id))
+        );
+      }),
+      map((observationsPerTrace: LangfuseObservation[][]) => {
+        const allObservations = observationsPerTrace.flat();
+        return allObservations.reduce<TokenUsageSummary>(
+          (summary, observation) => {
+            const inputTokens = observation.usage?.input ?? 0;
+            const outputTokens = observation.usage?.output ?? 0;
+            return {
+              totalInputTokens: summary.totalInputTokens + inputTokens,
+              totalOutputTokens: summary.totalOutputTokens + outputTokens,
+              totalTokens: summary.totalTokens + inputTokens + outputTokens,
+            };
+          },
+          { totalInputTokens: 0, totalOutputTokens: 0, totalTokens: 0 }
+        );
+      })
+    );
   }
 }
