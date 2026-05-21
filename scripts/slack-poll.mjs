@@ -45,30 +45,29 @@ let action = 'none';
 let ticketKey = '';
 let feedbackText = '';
 
+// Find the most recent bot message ticket key (from any time, not just last 10 min)
+const recentBotTicket = await findLatestBotTicketKey();
+console.log(`Latest bot ticket key: ${recentBotTicket}`);
+
 for (const msg of messages.reverse()) {
   const text = (msg.text ?? '').trim();
 
   // Skip bot messages
   if (msg.bot_id) continue;
 
-  if (text.toLowerCase() === 'approve') {
-    // Find the ticket key from the most recent bot message before this
-    ticketKey = extractTicketKeyFromHistory(messages, msg.ts);
-    if (ticketKey) {
-      action = 'approve';
-      console.log(`Found approve for ticket: ${ticketKey}`);
-      break;
-    }
+  if (text.toLowerCase() === 'approve' && recentBotTicket) {
+    action = 'approve';
+    ticketKey = recentBotTicket;
+    console.log(`Found approve for ticket: ${ticketKey}`);
+    break;
   }
 
-  if (text.toLowerCase().startsWith('feedback:')) {
-    ticketKey = extractTicketKeyFromHistory(messages, msg.ts);
-    if (ticketKey) {
-      action = 'feedback';
-      feedbackText = text;
-      console.log(`Found feedback for ticket: ${ticketKey} — ${feedbackText}`);
-      break;
-    }
+  if (text.toLowerCase().startsWith('feedback:') && recentBotTicket) {
+    action = 'feedback';
+    ticketKey = recentBotTicket;
+    feedbackText = text;
+    console.log(`Found feedback for ticket: ${ticketKey} — ${feedbackText}`);
+    break;
   }
 }
 
@@ -81,13 +80,26 @@ console.log(`Result: action=${action}, ticket=${ticketKey}`);
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function extractTicketKeyFromHistory(messages, beforeTs) {
-  // Look for the most recent bot message before this timestamp that contains a ticket key
-  const botMessages = messages.filter(m => m.bot_id && m.ts < beforeTs);
-  for (const msg of botMessages.reverse()) {
-    const text = msg.text ?? '';
-    const match = text.match(/([A-Z]+-\d+)/);
-    if (match) return match[1];
+async function findLatestBotTicketKey() {
+  // Fetch more history to find the latest bot message with a ticket key
+  const res = await fetch(
+    `https://slack.com/api/conversations.history?channel=${SLACK_CHANNEL_ID}&limit=50`,
+    { headers: slackHeaders }
+  );
+  const data = await res.json();
+  if (!data.ok) return '';
+
+  for (const msg of (data.messages ?? [])) {
+    if (!msg.bot_id) continue;
+    // Check text field
+    const textMatch = (msg.text ?? '').match(/([A-Z]+-\d+)/);
+    if (textMatch) return textMatch[1];
+    // Check blocks
+    for (const block of (msg.blocks ?? [])) {
+      const blockText = JSON.stringify(block);
+      const blockMatch = blockText.match(/([A-Z]+-\d+)/);
+      if (blockMatch) return blockMatch[1];
+    }
   }
   return '';
 }
