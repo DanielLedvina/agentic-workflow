@@ -1,31 +1,33 @@
-/**
- * Vercel serverless function — receives Slack Events API events.
- * Slack sends an event immediately when a message is posted in the channel.
- * We look for "approve" or "feedback: ..." and trigger the appropriate GitHub dispatch.
- */
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).send('Method not allowed');
   }
 
-  const body = req.body;
+  // Parse body manually — Vercel may pass raw string or object
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch { return res.status(400).send('Invalid JSON'); }
+  }
+  if (!body) {
+    return res.status(400).send('Empty body');
+  }
 
-  // Slack URL verification challenge (first-time setup)
+  // Slack URL verification challenge
   if (body.type === 'url_verification') {
-    return res.status(200).json({ challenge: body.challenge });
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).send(JSON.stringify({ challenge: body.challenge }));
   }
 
   // Only handle message events
   if (body.type !== 'event_callback' || body.event?.type !== 'message') {
-    return res.status(200).json({ ok: true });
+    return res.status(200).send('ok');
   }
 
   const event = body.event;
 
-  // Skip bot messages and message edits/deletes
+  // Skip bot messages and edits/deletes
   if (event.bot_id || event.subtype) {
-    return res.status(200).json({ ok: true });
+    return res.status(200).send('ok');
   }
 
   const text = (event.text ?? '').trim();
@@ -35,14 +37,12 @@ export default async function handler(req, res) {
 
   if (!GH_PAT) {
     console.error('Missing GH_PAT env var');
-    return res.status(500).json({ error: 'Missing GH_PAT' });
+    return res.status(500).send('Missing GH_PAT');
   }
 
-  // Find latest ticket key from channel history
   const ticketKey = await findLatestTicketKey(event.channel, SLACK_BOT_TOKEN);
   if (!ticketKey) {
-    console.log('No ticket key found in channel history, ignoring message.');
-    return res.status(200).json({ ok: true });
+    return res.status(200).send('ok');
   }
 
   let eventType = null;
@@ -50,18 +50,15 @@ export default async function handler(req, res) {
 
   if (text.toLowerCase() === 'approve') {
     eventType = 'jira-approved';
-    console.log(`approve → ${ticketKey}`);
   } else if (text.toLowerCase().startsWith('feedback:')) {
     eventType = 'jira-feedback';
     payload.feedback = text;
-    console.log(`feedback → ${ticketKey}: ${text}`);
   }
 
   if (!eventType) {
-    return res.status(200).json({ ok: true });
+    return res.status(200).send('ok');
   }
 
-  // Trigger GitHub dispatch
   const ghRes = await fetch(
     `https://api.github.com/repos/${GITHUB_REPO}/dispatches`,
     {
@@ -77,11 +74,11 @@ export default async function handler(req, res) {
 
   if (ghRes.ok || ghRes.status === 204) {
     console.log(`Dispatched ${eventType} for ${ticketKey}`);
-    return res.status(200).json({ ok: true, dispatched: eventType });
+    return res.status(200).send('ok');
   } else {
     const err = await ghRes.text();
     console.error(`GitHub dispatch failed: ${ghRes.status} ${err}`);
-    return res.status(500).json({ error: err });
+    return res.status(500).send(err);
   }
 }
 
