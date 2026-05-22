@@ -4,6 +4,19 @@
     <button class="btn-refresh" (click)="loadTraces()">Refresh</button>
   </header>
 
+  <div class="summary-cards">
+    <div class="summary-card">
+      <span class="summary-card__label">Total tokens used</span>
+      <span class="summary-card__value">
+        @if (totalTokensUsed() !== null) {
+          {{ totalTokensUsed() | number }}
+        } @else {
+          —
+        }
+      </span>
+    </div>
+  </div>
+
   @if (loading()) {
     <div class="state-message">Loading traces...</div>
   } @else if (error()) {

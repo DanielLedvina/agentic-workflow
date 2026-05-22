@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, switchMap, forkJoin, of } from 'rxjs';
 
 export interface LangfuseTrace {
   id: string;
@@ -53,5 +53,32 @@ export class LangfuseService {
         { headers: this.headers }
       )
       .pipe(map((r) => r.data ?? []));
+  }
+
+  /**
+   * Aggregates input + output token usage across all observations for all
+   * traces tagged with `agentic-workflow` and returns the combined total.
+   */
+  getTotalTokensUsed(): Observable<number> {
+    return this.getTraces().pipe(
+      switchMap((traces) => {
+        if (traces.length === 0) {
+          return of([]);
+        }
+        return forkJoin(
+          traces.map((trace) => this.getObservations(trace.id))
+        );
+      }),
+      map((observationSets: LangfuseObservation[][]) =>
+        observationSets.reduce((total, observations) => {
+          const setTotal = observations.reduce((sum, obs) => {
+            const inputTokens = obs.usage?.input ?? 0;
+            const outputTokens = obs.usage?.output ?? 0;
+            return sum + inputTokens + outputTokens;
+          }, 0);
+          return total + setTotal;
+        }, 0)
+      )
+    );
   }
 }
