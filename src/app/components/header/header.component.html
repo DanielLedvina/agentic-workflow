@@ -1,0 +1,35 @@
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="app-header__brand" routerLink="/" (click)="closeMenu()">
+      <span class="app-header__logo" aria-hidden="true">⚡</span>
+      <span class="app-header__title">{{ appTitle }}</span>
+    </a>
+
+    <button
+      type="button"
+      class="app-header__toggle"
+      [attr.aria-expanded]="isMenuOpen"
+      aria-label="Toggle navigation"
+      (click)="toggleMenu()"
+    >
+      <span class="app-header__toggle-bar"></span>
+      <span class="app-header__toggle-bar"></span>
+      <span class="app-header__toggle-bar"></span>
+    </button>
+
+    <nav class="app-header__nav" [class.app-header__nav--open]="isMenuOpen">
+      <ul class="app-header__nav-list">
+        <li *ngFor="let link of navLinks" class="app-header__nav-item">
+          <a
+            class="app-header__nav-link"
+            [routerLink]="link.path"
+            routerLinkActive="app-header__nav-link--active"
+            (click)="closeMenu()"
+          >
+            {{ link.label }}
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>
