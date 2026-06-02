@@ -1,0 +1,118 @@
+<div class="create-container">
+  <div class="create-header">
+    <h1>Create New Ticket</h1>
+    <p>Describe what you need, and the orchestrator will help you plan it</p>
+  </div>
+
+  @if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+  }
+
+  @if (taskCreated()) {
+  <div class="success-banner">✓ Task created! Redirecting to checkpoint...</div>
+  }
+
+  <div class="create-content">
+    <!-- Left: Chat Interface -->
+    <div class="chat-section">
+      <div class="messages-container" #messagesContainer>
+        @for (msg of messages(); track msg.id) {
+        <div class="message" [class.user]="msg.role === 'user'" [class.orchestrator]="msg.role === 'orchestrator'">
+          <div class="message-header">
+            @if (msg.role === 'user') {
+            <span class="role-badge user-badge">You</span>
+            } @else {
+            <span class="role-badge orchestrator-badge">🤖 Orchestrator</span>
+            }
+            <span class="timestamp">{{ msg.timestamp | date : 'HH:mm:ss' }}</span>
+          </div>
+          <div class="message-content">{{ msg.content }}</div>
+        </div>
+        }
+
+        @if (streaming()) {
+        <div class="message orchestrator typing">
+          <div class="message-header">
+            <span class="role-badge orchestrator-badge">🤖 Orchestrator</span>
+          </div>
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        }
+      </div>
+
+      <div class="chat-input-area">
+        <textarea
+          [(ngModel)]="messageInput"
+          placeholder="Describe what you need..."
+          (keydown.enter)="$event.ctrlKey && sendMessage()"
+          [disabled]="loading() || streaming()"
+          rows="3"
+        ></textarea>
+        <button
+          class="btn-send"
+          (click)="sendMessage()"
+          [disabled]="!messageInput() || streaming() || loading()"
+        >
+          @if (streaming()) { Processing... } @else { Send }
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Task Info -->
+    <div class="task-section">
+      <div class="task-card">
+        <h3>Task Details</h3>
+
+        <div class="form-group">
+          <label for="jira-title">Jira Task Title</label>
+          <input
+            id="jira-title"
+            type="text"
+            [(ngModel)]="jiraTitle"
+            placeholder="e.g., Add dark mode toggle"
+            [disabled]="taskCreated()"
+          />
+          <p class="help-text">This will be the title of your Jira ticket</p>
+        </div>
+
+        @if (planReady()) {
+        <div class="plan-section">
+          <h4>📋 Orchestrator Plan</h4>
+          <div class="plan-content">
+            @if (orchestratorPlan()?.summary) {
+            <p>{{ orchestratorPlan().summary }}</p>
+            }
+            @if (orchestratorPlan()?.agents) {
+            <div class="agents-list">
+              <strong>Agents assigned:</strong>
+              <ul>
+                @for (agent of orchestratorPlan().agents; track agent.name) {
+                <li>
+                  <strong>{{ agent.name }}:</strong> {{ agent.task }}
+                </li>
+                }
+              </ul>
+            </div>
+            }
+          </div>
+        </div>
+
+        <button
+          class="btn-create-task"
+          (click)="createTask()"
+          [disabled]="!jiraTitle() || creatingTask() || taskCreated()"
+        >
+          @if (creatingTask()) { Creating... } @else { Confirm & Create Task }
+        </button>
+        } @else {
+        <div class="waiting-plan">
+          <p>💬 Chat with the orchestrator to get started</p>
+          <p>The plan will appear here once they understand your task</p>
+        </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

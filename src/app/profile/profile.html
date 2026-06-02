@@ -1,0 +1,106 @@
+<div class="profile-container">
+  <div class="profile-header">
+    <h1>User Profile</h1>
+    <p class="subtitle">Manage your account settings and integrations</p>
+  </div>
+
+  <!-- Error/Success Messages -->
+  <div *ngIf="errorMessage" class="alert alert-error">
+    {{ errorMessage }}
+  </div>
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <!-- User Info Section -->
+  <div class="profile-section" *ngIf="userProfile">
+    <div class="section-title">
+      <h2>Account Information</h2>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Email</label>
+        <p class="value">{{ userProfile.email }}</p>
+      </div>
+
+      <div class="info-item">
+        <label>Role</label>
+        <p class="value">
+          <span class="role-badge" [class]="'role-' + userProfile.role">
+            {{ getRoleDisplayName(userProfile.role) }}
+          </span>
+        </p>
+      </div>
+
+      <div class="info-item">
+        <label>Member Since</label>
+        <p class="value">{{ userProfile.created_at | date: 'mediumDate' }}</p>
+      </div>
+
+      <div class="info-item">
+        <label>User ID</label>
+        <p class="value code">{{ userProfile.id }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discord Integration Section -->
+  <div class="profile-section" *ngIf="canManageDiscord()">
+    <div class="section-title">
+      <h2>Discord Integration</h2>
+      <p class="section-description">Link your Discord account to receive notifications in Discord</p>
+    </div>
+
+    <div class="discord-integration">
+      <div class="discord-status" [class.linked]="userProfile?.discord_user_id">
+        <div class="status-indicator" [class.active]="userProfile?.discord_user_id"></div>
+        <div class="status-text">
+          <p class="status-label">Discord Account</p>
+          <p class="status-value" *ngIf="userProfile?.discord_user_id">
+            Linked (ID: {{ userProfile.discord_user_id }})
+          </p>
+          <p class="status-value" *ngIf="!userProfile?.discord_user_id">
+            Not linked
+          </p>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button
+          *ngIf="!userProfile?.discord_user_id"
+          class="btn btn-primary"
+          (click)="linkDiscord()"
+          [disabled]="discordLinkingInProgress"
+        >
+          <span *ngIf="!discordLinkingInProgress">Link Discord Account</span>
+          <span *ngIf="discordLinkingInProgress">Linking...</span>
+        </button>
+
+        <button
+          *ngIf="userProfile?.discord_user_id"
+          class="btn btn-danger"
+          (click)="unlinkDiscord()"
+          [disabled]="unlinkingInProgress"
+        >
+          <span *ngIf="!unlinkingInProgress">Unlink Discord Account</span>
+          <span *ngIf="unlinkingInProgress">Unlinking...</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <p>
+        When your Discord account is linked, you'll receive notifications about workflow updates, checkpoint decisions,
+        and task completions directly in Discord.
+      </p>
+    </div>
+  </div>
+
+  <!-- Limited Access Notice -->
+  <div class="profile-section" *ngIf="!canManageDiscord()">
+    <div class="info-box info-box-warning">
+      <p>Discord integration is only available for Product Owners, Developers, and Senior Developers.</p>
+    </div>
+  </div>
+</div>

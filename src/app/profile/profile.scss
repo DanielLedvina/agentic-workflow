@@ -1,0 +1,280 @@
+.profile-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+
+  .profile-header {
+    margin-bottom: 2rem;
+    text-align: center;
+
+    h1 {
+      font-size: 2.5rem;
+      margin: 0 0 0.5rem 0;
+      color: #1a1a1a;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+  }
+
+  .alert {
+    padding: 1rem 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+
+    &.alert-error {
+      background-color: #fee;
+      color: #c33;
+      border: 1px solid #fcc;
+    }
+
+    &.alert-success {
+      background-color: #efe;
+      color: #3c3;
+      border: 1px solid #cfc;
+    }
+  }
+
+  .profile-section {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+    .section-title {
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid #f0f0f0;
+      padding-bottom: 1rem;
+
+      h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+        color: #1a1a1a;
+      }
+
+      .section-description {
+        margin: 0;
+        color: #666;
+        font-size: 0.95rem;
+      }
+    }
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+
+    .info-item {
+      label {
+        display: block;
+        font-weight: 600;
+        color: #666;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+      }
+
+      .value {
+        margin: 0;
+        font-size: 1rem;
+        color: #1a1a1a;
+        word-break: break-word;
+
+        &.code {
+          font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+          font-size: 0.85rem;
+          background-color: #f5f5f5;
+          padding: 0.5rem 0.75rem;
+          border-radius: 4px;
+          overflow: auto;
+        }
+      }
+
+      .role-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        &.role-user {
+          background-color: #e3f2fd;
+          color: #1976d2;
+        }
+
+        &.role-po_dev {
+          background-color: #f3e5f5;
+          color: #7b1fa2;
+        }
+
+        &.role-senior_dev {
+          background-color: #e8f5e9;
+          color: #388e3c;
+        }
+
+        &.role-admin {
+          background-color: #ffebee;
+          color: #d32f2f;
+        }
+      }
+    }
+  }
+
+  .discord-integration {
+    margin-bottom: 1.5rem;
+
+    .discord-status {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      background-color: #f9f9f9;
+      border-radius: 6px;
+      margin-bottom: 1.5rem;
+      border: 2px solid #e0e0e0;
+      transition: all 0.3s ease;
+
+      &.linked {
+        background-color: #f0fdf4;
+        border-color: #86efac;
+      }
+
+      .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #ccc;
+        margin-right: 1rem;
+        transition: background-color 0.3s ease;
+
+        &.active {
+          background-color: #22c55e;
+        }
+      }
+
+      .status-text {
+        flex: 1;
+
+        .status-label {
+          margin: 0;
+          font-size: 0.9rem;
+          color: #666;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 600;
+        }
+
+        .status-value {
+          margin: 0.25rem 0 0 0;
+          font-size: 1rem;
+          color: #1a1a1a;
+          font-weight: 500;
+        }
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+
+      .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        &.btn-primary {
+          background-color: #5865f2;
+          color: white;
+
+          &:hover:not(:disabled) {
+            background-color: #4752c4;
+            box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3);
+          }
+        }
+
+        &.btn-danger {
+          background-color: #ed4245;
+          color: white;
+
+          &:hover:not(:disabled) {
+            background-color: #c03537;
+            box-shadow: 0 4px 8px rgba(237, 66, 69, 0.3);
+          }
+        }
+      }
+    }
+  }
+
+  .info-box {
+    padding: 1rem;
+    background-color: #f0f0f0;
+    border-left: 4px solid #2196f3;
+    border-radius: 4px;
+    margin-top: 1.5rem;
+
+    p {
+      margin: 0;
+      color: #555;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    &.info-box-warning {
+      background-color: #fff8e1;
+      border-left-color: #fbc02d;
+
+      p {
+        color: #656565;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 1rem;
+
+    .profile-header {
+      h1 {
+        font-size: 2rem;
+      }
+    }
+
+    .profile-section {
+      padding: 1.5rem 1rem;
+    }
+
+    .info-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .discord-integration .action-buttons {
+      flex-direction: column;
+
+      .btn {
+        width: 100%;
+      }
+    }
+  }
+}

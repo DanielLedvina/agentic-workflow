@@ -1,33 +1,48 @@
-import { Component, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
-
-interface JiraTicket {
-  key: string;
-  summary: string;
-  status: 'To Do' | 'In Progress' | 'Done';
-  priority: 'Low' | 'Medium' | 'High' | 'Critical';
-  assignee: string;
-  type: 'Bug' | 'Story' | 'Task';
-}
+import { Component, OnInit, signal, inject } from '@angular/core';
+import { RouterLink, Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { BoardService, Task } from './board.service';
 
 @Component({
   selector: 'app-board',
-  imports: [RouterLink],
+  imports: [RouterLink, CommonModule],
   templateUrl: './board.html',
   styleUrl: './board.scss',
 })
-export class Board {
-  tickets = signal<JiraTicket[]>([
-    { key: 'AGD-1', summary: 'Set up Angular project structure', status: 'Done', priority: 'High', assignee: 'Daniel', type: 'Task' },
-    { key: 'AGD-2', summary: 'Implement Jira ticket board view', status: 'In Progress', priority: 'High', assignee: 'Daniel', type: 'Story' },
-    { key: 'AGD-3', summary: 'Add authentication with OAuth2', status: 'To Do', priority: 'Critical', assignee: 'Unassigned', type: 'Task' },
-    { key: 'AGD-4', summary: 'Fix broken navigation on mobile', status: 'To Do', priority: 'Medium', assignee: 'Unassigned', type: 'Bug' },
-    { key: 'AGD-5', summary: 'Write unit tests for ticket service', status: 'To Do', priority: 'Low', assignee: 'Unassigned', type: 'Task' },
-  ]);
+export class Board implements OnInit {
+  private boardService = inject(BoardService);
+  private router = inject(Router);
 
-  columns: JiraTicket['status'][] = ['To Do', 'In Progress', 'Done'];
+  tickets = signal<Task[]>([]);
+  loading = signal(true);
+  error = signal<string | null>(null);
 
-  getTicketsByStatus(status: JiraTicket['status']) {
+  columns: Task['status'][] = ['Waiting for Approve', 'In Progress', 'Done'];
+
+  ngOnInit(): void {
+    this.loadTasks();
+  }
+
+  private loadTasks(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.boardService.getTasks().subscribe({
+      next: (data) => {
+        this.tickets.set(data.tasks);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.error.set('Failed to load tasks. Please refresh and try again.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  getTicketsByStatus(status: Task['status']) {
     return this.tickets().filter((t) => t.status === status);
+  }
+
+  openCheckpoint(sessionId: string): void {
+    this.router.navigate(['/checkpoint', sessionId]);
   }
 }

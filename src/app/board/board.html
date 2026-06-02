@@ -14,6 +14,16 @@
     </div>
   </header>
 
+  @if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading tasks...</p>
+  </div>
+  } @else {
   <div class="board">
     @for (column of columns; track column) {
       <div class="column">
@@ -23,8 +33,14 @@
         </div>
 
         <div class="tickets">
-          @for (ticket of getTicketsByStatus(column); track ticket.key) {
-            <div class="ticket" [class]="'ticket--' + ticket.status.toLowerCase().replace(' ', '-')">
+          @for (ticket of getTicketsByStatus(column); track ticket.id) {
+            <div
+              class="ticket"
+              [class]="'ticket--' + ticket.status.toLowerCase().replace(' ', '-')"
+              (click)="openCheckpoint(ticket.sessionId)"
+              role="button"
+              tabindex="0"
+            >
               <div class="ticket-top">
                 <span class="ticket-type" [class]="'type--' + ticket.type.toLowerCase()">{{ ticket.type }}</span>
                 <span class="ticket-priority" [class]="'priority--' + ticket.priority.toLowerCase()">{{ ticket.priority }}</span>
@@ -42,4 +58,5 @@
       </div>
     }
   </div>
+  }
 </div>

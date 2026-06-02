@@ -1,0 +1,30 @@
+<div class="login-container">
+  <div class="login-box">
+    <h1>Agentic Workflow</h1>
+    <p class="subtitle">Enter password to continue</p>
+
+    @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+    }
+
+    <form (ngSubmit)="login()">
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="Enter password"
+          (keypress)="onKeyPress($event)"
+          [disabled]="loading()"
+          autocomplete="off"
+        />
+      </div>
+
+      <button type="submit" [disabled]="loading()" class="btn-primary">
+        @if (loading()) { Logging in... } @else { Login }
+      </button>
+    </form>
+  </div>
+</div>

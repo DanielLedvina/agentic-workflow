@@ -1,0 +1,174 @@
+<div class="checkpoint-container">
+  <div class="checkpoint-header">
+    <div class="header-content">
+      <h1>Senior Developer Checkpoint</h1>
+      <p>Review the orchestrator's plan and decide on implementation approach</p>
+    </div>
+    <div class="task-info">
+      @if (session()?.ticket_key) {
+      <a [href]="'https://signosofts.atlassian.net/browse/' + session().ticket_key" target="_blank"
+        class="jira-link">
+        📋 {{ session().ticket_key }}
+      </a>
+      }
+    </div>
+  </div>
+
+  @if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Loading session...</p>
+  </div>
+  } @else {
+  <div class="checkpoint-content">
+    <!-- Left: Conversation -->
+    <div class="conversation-section">
+      <h3>Conversation</h3>
+      <div class="messages-container" #messagesContainer>
+        @for (msg of messages(); track msg.id) {
+        <div class="message" [class.user]="msg.role === 'user'" [class.orchestrator]="msg.role === 'orchestrator'">
+          <div class="message-header">
+            @if (msg.role === 'user') {
+            <span class="role-badge user-badge">Developer</span>
+            } @else {
+            <span class="role-badge orchestrator-badge">🤖 Orchestrator</span>
+            }
+            <span class="timestamp">{{ msg.timestamp | date : 'HH:mm:ss' }}</span>
+          </div>
+          <div class="message-content">{{ msg.content }}</div>
+        </div>
+        }
+
+        @if (streaming()) {
+        <div class="message orchestrator typing">
+          <div class="message-header">
+            <span class="role-badge orchestrator-badge">🤖 Orchestrator</span>
+          </div>
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        }
+      </div>
+
+      <div class="chat-input-area">
+        <textarea
+          [(ngModel)]="messageInput"
+          placeholder="Continue discussing with orchestrator (Ctrl+Enter to send)..."
+          (keydown.enter)="$event.ctrlKey && sendMessage()"
+          [disabled]="streaming() || decision() !== null"
+          rows="2"
+        ></textarea>
+        <button class="btn-send" (click)="sendMessage()" [disabled]="!messageInput() || streaming() || decision() !== null">
+          @if (streaming()) { Thinking... } @else { Send }
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Assessment & Decision -->
+    <div class="assessment-section">
+      <div class="assessment-card">
+        <h3>🎯 Difficulty Assessment</h3>
+
+        @if (difficulty()) {
+        <div class="difficulty-indicator" [class]="difficulty()">
+          <div class="difficulty-badge">{{ difficulty() | uppercase }}</div>
+          <p class="difficulty-description">{{ difficultyReason }}</p>
+        </div>
+
+        <div class="decision-buttons">
+          @if (difficulty() === 'easy') {
+          <button class="btn-implement" (click)="approveAndImplement()" [disabled]="decidingTask() || decision() !== null">
+            @if (decidingTask()) {
+            ✓ Creating PR...
+            } @else {
+            ✓ Approve & Implement
+            }
+          </button>
+          <p class="btn-help">Orchestrator will auto-implement and create a PR</p>
+          } @else if (difficulty() === 'hard') {
+          <div class="hard-task-actions">
+            <button class="btn-escalate" (click)="escalateToIde()" [disabled]="decidingTask() || generatingContext() || decision() !== null">
+              @if (generatingContext()) {
+              ⏳ Generating Context...
+              } @else if (decidingTask()) {
+              📤 Escalating...
+              } @else {
+              📤 Take to IDE
+              }
+            </button>
+            <p class="btn-help">Prepare context and continue work in your IDE</p>
+
+            @if (decision() === 'escalate' || contextReady()) {
+            <div class="context-box">
+              <h4>💻 Copy Context to IDE</h4>
+              <p class="context-help">Click below to copy the full context to paste into Cursor or your IDE</p>
+              <button class="btn-copy" (click)="copyContextToClipboard()">
+                @if (contextCopied()) {
+                ✓ Copied!
+                } @else {
+                📋 Copy Context
+                }
+              </button>
+              @if (ideContext()) {
+              <div class="context-preview">
+                <small>Context generated - ready to copy</small>
+              </div>
+              }
+            </div>
+            }
+          </div>
+          }
+        </div>
+        } @else {
+        <div class="assessing">
+          <p>💭 Orchestrator is assessing the task complexity...</p>
+        </div>
+        }
+      </div>
+
+      <!-- Task Summary -->
+      @if (session()?.orchestrator_plan?.agents) {
+      <div class="plan-card">
+        <h3>📋 Implementation Plan</h3>
+        <div class="agents-grid">
+          @for (agent of session().orchestrator_plan.agents; track agent.name) {
+          <div class="agent-item">
+            <h4>{{ agent.name }}</h4>
+            <p>{{ agent.task }}</p>
+            @if (agent.files && agent.files.length > 0) {
+            <div class="files-list">
+              <small>Files:</small>
+              <ul>
+                @for (file of agent.files; track file) {
+                <li>{{ file }}</li>
+                }
+              </ul>
+            </div>
+            }
+          </div>
+          }
+        </div>
+      </div>
+      }
+
+      <!-- Decision Status -->
+      @if (decision()) {
+      <div class="decision-status" [class]="decision()">
+        @if (decision() === 'implement') {
+        <p>✓ <strong>Task approved for auto-implementation</strong></p>
+        <p class="status-note">PR will be created automatically. Redirecting...</p>
+        } @else if (decision() === 'escalate') {
+        <p>✓ <strong>Escalated to IDE</strong></p>
+        <p class="status-note">Context is ready. Copy it to your IDE and start working!</p>
+        }
+      </div>
+      }
+    </div>
+  </div>
+  }
+</div>
