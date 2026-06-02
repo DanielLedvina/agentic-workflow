@@ -46,7 +46,7 @@
         <textarea
           [(ngModel)]="messageInput"
           placeholder="Describe what you need..."
-          (keydown.enter)="$event.ctrlKey && sendMessage()"
+          (keydown)="handleKeydown($event)"
           [disabled]="loading() || streaming()"
           rows="3"
         ></textarea>
@@ -115,4 +115,25 @@
       </div>
     </div>
   </div>
+
+  <!-- New Tasks List -->
+  @if (newTasks().length > 0) {
+  <div class="tasks-section">
+    <h2>📝 New Tasks</h2>
+    <div class="tasks-grid">
+      @for (task of newTasks(); track task.id) {
+      <div class="task-item" (click)="goToTask(task)">
+        <div class="task-header">
+          <span class="task-title">{{ task.title }}</span>
+          @if (task.jiraKey) {
+          <a [href]="task.jiraUrl" target="_blank" class="jira-link">{{ task.jiraKey }}</a>
+          }
+        </div>
+        <p class="task-created">{{ task.createdAt | date: 'dd.MM.yyyy HH:mm' }}</p>
+        <button class="btn-task-link">View Task →</button>
+      </div>
+      }
+    </div>
+  </div>
+  }
 </div>

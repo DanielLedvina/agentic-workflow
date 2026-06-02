@@ -36,8 +36,18 @@ interface CreatePRResult {
 
 export async function getMainBranchSha(): Promise<string> {
   try {
-    const response = await api.get(`/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/main`);
-    return response.data.object.sha;
+    // Try lowercase 'main' first
+    try {
+      const response = await api.get(`/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/main`);
+      return response.data.object.sha;
+    } catch (err: any) {
+      // If not found, try capitalized 'Main'
+      if (err.response?.status === 404) {
+        const response = await api.get(`/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/Main`);
+        return response.data.object.sha;
+      }
+      throw err;
+    }
   } catch (err) {
     console.error('Failed to get main branch SHA:', err);
     throw err;
@@ -107,7 +117,8 @@ export async function commitFiles(
 
 export async function createPullRequest(options: CreatePROptions): Promise<CreatePRResult> {
   try {
-    const baseBranch = options.baseBranch || 'main';
+    // Determine correct base branch (main or Main)
+    let baseBranch = options.baseBranch || 'Main';
 
     // Get main branch SHA
     const mainSha = await getMainBranchSha();

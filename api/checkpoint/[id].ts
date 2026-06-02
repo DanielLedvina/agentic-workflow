@@ -1,13 +1,15 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '@vercel/postgres';
+import { createClient } from '@vercel/postgres';
 import axios from 'axios';
+
+const db = createClient({ connectionString: process.env.POSTGRES_URL });
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   }
 
-  const { sessionId } = req.query as { sessionId?: string };
+  const { id: sessionId } = req.query as { id?: string };
   const { decision, notes } = req.body;
 
   if (!sessionId || !decision) {
@@ -15,12 +17,16 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   }
 
   try {
+    await db.connect();
+
     // Get session
-    const sessionResult = await sql`
-      SELECT * FROM sessions WHERE id = $1
-    `, [sessionId];
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions WHERE id = $1',
+      [sessionId]
+    );
 
     if (!sessionResult.rows.length) {
+      await db.end();
       return res.status(404).json({ error: 'NOT_FOUND' });
     }
 
@@ -28,21 +34,22 @@ export default async (req: VercelRequest, res: VercelResponse) => {
 
     // Update session approval_status
     if (decision === 'implement') {
-      await sql`
-        UPDATE sessions SET approval_status = $1, updated_at = NOW()
-        WHERE id = $2
-      `, ['approved_easy', sessionId];
+      await db.query(
+        'UPDATE sessions SET approval_status = $1, updated_at = NOW() WHERE id = $2',
+        ['approved_easy', sessionId]
+      );
     } else if (decision === 'escalate') {
-      await sql`
-        UPDATE sessions SET approval_status = $1, updated_at = NOW()
-        WHERE id = $2
-      `, ['approved_hard', sessionId];
+      await db.query(
+        'UPDATE sessions SET approval_status = $1, updated_at = NOW() WHERE id = $2',
+        ['approved_hard', sessionId]
+      );
     }
 
     // Get Jira info
-    const jiraResult = await sql`
-      SELECT * FROM jira_task_links WHERE session_id = $1 LIMIT 1
-    `, [sessionId];
+    const jiraResult = await db.query(
+      'SELECT * FROM jira_task_links WHERE session_id = $1 LIMIT 1',
+      [sessionId]
+    );
 
     const jiraTask = jiraResult.rows[0];
 
@@ -68,17 +75,20 @@ export default async (req: VercelRequest, res: VercelResponse) => {
         nextAction: 'copy_to_ide',
       });
     } else if (decision === 'cancel') {
-      await sql`
-        UPDATE sessions SET approval_status = $1, updated_at = NOW()
-        WHERE id = $2
-      `, ['cancelled', sessionId];
+      await db.query(
+        'UPDATE sessions SET approval_status = $1, updated_at = NOW() WHERE id = $2',
+        ['cancelled', sessionId]
+      );
 
+      await db.end();
       return res.status(200).json({
         status: 'ok',
         message: 'Task cancelled',
         nextAction: 'cancelled',
       });
     }
+
+    await db.end();
   } catch (err) {
     console.error('Checkpoint decision error:', err);
     return res.status(500).json({ error: 'CHECKPOINT_ERROR' });

@@ -1,135 +1,74 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getCookie, validateStatusTransition, successResponse, errorResponse } from '../lib/auth';
-import { dbPool } from '../lib/db-pool';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@vercel/postgres';
 
-interface SessionDetail {
-  id: string;
-  status: 'active' | 'paused' | 'completed' | 'failed';
-  createdAt: string;
-  updatedAt: string;
-  userId: string | null;
-  messages: Array<{
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    createdAt: string;
-    inputTokens: number | null;
-    outputTokens: number | null;
-  }>;
-  plan?: any;
-}
+const db = createClient({ connectionString: process.env.POSTGRES_URL });
 
-interface UpdateSessionRequest {
-  status?: 'active' | 'paused' | 'completed' | 'failed';
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Require authentication
-  const sessionIdCookie = getCookie(req, 'session_id');
-  if (!sessionIdCookie) {
-    return errorResponse(res, 'UNAUTHORIZED', 'Authentication required', 401);
+export default async (req: VercelRequest, res: VercelResponse) => {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   }
 
-  const { id } = req.query as { id: string };
-  if (!id) {
-    return errorResponse(res, 'MISSING_ID', 'Session ID required', 400);
+  const { id: sessionId } = req.query as { id?: string };
+
+  if (!sessionId) {
+    return res.status(400).json({ error: 'INVALID_INPUT', message: 'sessionId required' });
   }
 
-  if (req.method === 'GET') {
-    return handleGetSession(id, res);
-  }
-
-  if (req.method === 'PATCH') {
-    return handleUpdateSession(id, req, res);
-  }
-
-  return errorResponse(res, 'METHOD_NOT_ALLOWED', 'GET, PATCH required', 405);
-}
-
-async function handleGetSession(sessionId: string, res: VercelResponse) {
   try {
+    await db.connect();
+
     // Get session
-    const session = await dbPool.getOne(
-      'SELECT id, status, created_at, updated_at, user_id, orchestrator_plan FROM sessions WHERE id = $1',
-      [sessionId],
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions WHERE id = $1',
+      [String(sessionId)]
     );
 
-    if (!session) {
-      return errorResponse(res, 'NOT_FOUND', 'Session not found', 404);
+    if (sessionResult.rows.length === 0) {
+      await db.end();
+      return res.status(404).json({ error: 'NOT_FOUND' });
     }
+
+    const session = sessionResult.rows[0];
 
     // Get messages
-    const messages = await dbPool.query(
-      `SELECT id, role, content, created_at, input_tokens, output_tokens
-       FROM messages WHERE session_id = $1 ORDER BY created_at ASC`,
-      [sessionId],
+    const messagesResult = await db.query(
+      'SELECT id, role, content, created_at FROM messages WHERE session_id = $1 ORDER BY created_at ASC',
+      [String(sessionId)]
     );
 
-    const detail: SessionDetail = {
+    const messages = messagesResult.rows.map((msg: any) => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      timestamp: msg.created_at,
+    }));
+
+    // Parse orchestrator_plan if it's a string
+    let orchestratorPlan = session.orchestrator_plan;
+    if (typeof orchestratorPlan === 'string') {
+      try {
+        orchestratorPlan = JSON.parse(orchestratorPlan);
+      } catch (e) {
+        orchestratorPlan = null;
+      }
+    }
+
+    await db.end();
+
+    return res.status(200).json({
       id: session.id,
+      user_id: session.user_id,
       status: session.status,
-      createdAt: session.created_at,
-      updatedAt: session.updated_at,
-      userId: session.user_id || null,
-      messages: messages.map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        createdAt: m.created_at,
-        inputTokens: m.input_tokens,
-        outputTokens: m.output_tokens,
-      })),
-    };
-
-    if (session.orchestrator_plan) {
-      detail.plan = typeof session.orchestrator_plan === 'string'
-        ? JSON.parse(session.orchestrator_plan)
-        : session.orchestrator_plan;
-    }
-
-    return successResponse<SessionDetail>(res, detail);
-  } catch (err: any) {
-    console.error('Get session error:', err.message);
-    return errorResponse(res, 'QUERY_ERROR', 'Failed to retrieve session', 500);
-  }
-}
-
-async function handleUpdateSession(sessionId: string, req: VercelRequest, res: VercelResponse) {
-  const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) as UpdateSessionRequest;
-
-  if (!body.status) {
-    return errorResponse(res, 'MISSING_STATUS', 'status is required', 400);
-  }
-
-  try {
-    // Get current session
-    const current = await dbPool.getOne('SELECT status FROM sessions WHERE id = $1', [sessionId]);
-
-    if (!current) {
-      return errorResponse(res, 'NOT_FOUND', 'Session not found', 404);
-    }
-
-    // Validate transition
-    const transition = validateStatusTransition(current.status, body.status);
-    if (!transition.valid) {
-      return errorResponse(res, 'INVALID_TRANSITION', transition.error || '', 400);
-    }
-
-    // Update status
-    const updated = await dbPool.update(
-      'UPDATE sessions SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status, updated_at, created_at, user_id',
-      [body.status, sessionId],
-    );
-
-    return successResponse(res, {
-      id: updated.id,
-      status: updated.status,
-      createdAt: updated.created_at,
-      updatedAt: updated.updated_at,
-      userId: updated.user_id || null,
+      ticket_key: session.ticket_key,
+      jira_key: session.jira_key,
+      approval_status: session.approval_status,
+      orchestrator_plan: orchestratorPlan,
+      messages,
+      created_at: session.created_at,
+      updated_at: session.updated_at,
     });
   } catch (err: any) {
-    console.error('Update session error:', err.message);
-    return errorResponse(res, 'UPDATE_ERROR', 'Failed to update session', 500);
+    console.error('Session GET error:', err);
+    return res.status(500).json({ error: 'SESSION_ERROR', message: err.message });
   }
-}
+};

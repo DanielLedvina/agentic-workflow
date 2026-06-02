@@ -1,4 +1,9 @@
 {
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true
+  },
   "/langfuse": {
     "target": "https://cloud.langfuse.com",
     "secure": true,

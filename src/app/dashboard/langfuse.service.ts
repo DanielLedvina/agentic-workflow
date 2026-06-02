@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, catchError, of } from 'rxjs';
 
 export interface LangfuseTrace {
   id: string;
@@ -31,7 +31,14 @@ export class LangfuseService {
   private http = inject(HttpClient);
 
   private get headers(): HttpHeaders {
-    const key = `${(window as any).__LANGFUSE_PUBLIC_KEY__}:${(window as any).__LANGFUSE_SECRET_KEY__}`;
+    const publicKey = (window as any).__LANGFUSE_PUBLIC_KEY__;
+    const secretKey = (window as any).__LANGFUSE_SECRET_KEY__;
+
+    if (!publicKey || !secretKey) {
+      throw new Error('Langfuse credentials not configured');
+    }
+
+    const key = `${publicKey}:${secretKey}`;
     return new HttpHeaders({
       Authorization: `Basic ${btoa(key)}`,
       'Content-Type': 'application/json',
@@ -39,19 +46,40 @@ export class LangfuseService {
   }
 
   getTraces(): Observable<LangfuseTrace[]> {
-    return this.http
-      .get<{ data: LangfuseTrace[] }>('/langfuse/api/public/traces?tags=agentic-workflow&limit=20', {
-        headers: this.headers,
-      })
-      .pipe(map((r) => r.data ?? []));
+    try {
+      return this.http
+        .get<{ data: LangfuseTrace[] }>('/langfuse/api/public/traces?tags=agentic-workflow&limit=20', {
+          headers: this.headers,
+        })
+        .pipe(
+          map((r) => r.data ?? []),
+          catchError((err) => {
+            console.warn('Langfuse not available:', err);
+            return of([]);
+          })
+        );
+    } catch (err) {
+      console.warn('Langfuse credentials missing:', err);
+      return of([]);
+    }
   }
 
   getObservations(traceId: string): Observable<LangfuseObservation[]> {
-    return this.http
-      .get<{ data: LangfuseObservation[] }>(
-        `/langfuse/api/public/observations?traceId=${traceId}`,
-        { headers: this.headers }
-      )
-      .pipe(map((r) => r.data ?? []));
+    try {
+      return this.http
+        .get<{ data: LangfuseObservation[] }>(
+          `/langfuse/api/public/observations?traceId=${traceId}`,
+          { headers: this.headers }
+        )
+        .pipe(
+          map((r) => r.data ?? []),
+          catchError((err) => {
+            console.warn('Failed to load observations:', err);
+            return of([]);
+          })
+        );
+    } catch (err) {
+      return of([]);
+    }
   }
 }

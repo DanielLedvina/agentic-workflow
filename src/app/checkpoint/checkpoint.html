@@ -59,7 +59,7 @@
         <textarea
           [(ngModel)]="messageInput"
           placeholder="Continue discussing with orchestrator (Ctrl+Enter to send)..."
-          (keydown.enter)="$event.ctrlKey && sendMessage()"
+          (keydown)="handleKeydown($event)"
           [disabled]="streaming() || decision() !== null"
           rows="2"
         ></textarea>
@@ -77,7 +77,7 @@
         @if (difficulty()) {
         <div class="difficulty-indicator" [class]="difficulty()">
           <div class="difficulty-badge">{{ difficulty() | uppercase }}</div>
-          <p class="difficulty-description">{{ difficultyReason }}</p>
+          <p class="difficulty-description">{{ difficultyReason() }}</p>
         </div>
 
         <div class="decision-buttons">

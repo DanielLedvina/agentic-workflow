@@ -1,61 +1,47 @@
-<div class="board-wrapper">
+<div class="board-container">
   <header class="board-header">
-    <div class="project-info">
-      <div class="project-avatar">AG</div>
-      <div>
-        <h1>Agentic Demo</h1>
-        <span class="project-key">Software project</span>
-      </div>
-    </div>
-    <div class="board-meta">
-      <span class="sprint-label">Sprint 1</span>
-      <span class="ticket-count">{{ tickets().length }} issues</span>
-      <a class="dashboard-link" routerLink="/dashboard">Agent Dashboard</a>
-    </div>
+    <h1>📋 In Progress Tasks</h1>
+    <p>Tasks currently being implemented</p>
   </header>
-
-  @if (error()) {
-  <div class="error-banner">{{ error() }}</div>
-  }
 
   @if (loading()) {
   <div class="loading">
-    <div class="spinner"></div>
     <p>Loading tasks...</p>
   </div>
   } @else {
-  <div class="board">
-    @for (column of columns; track column) {
-      <div class="column">
-        <div class="column-header">
-          <span class="column-title">{{ column }}</span>
-          <span class="column-count">{{ getTicketsByStatus(column).length }}</span>
-        </div>
-
-        <div class="tickets">
-          @for (ticket of getTicketsByStatus(column); track ticket.id) {
-            <div
-              class="ticket"
-              [class]="'ticket--' + ticket.status.toLowerCase().replace(' ', '-')"
-              (click)="openCheckpoint(ticket.sessionId)"
-              role="button"
-              tabindex="0"
-            >
-              <div class="ticket-top">
-                <span class="ticket-type" [class]="'type--' + ticket.type.toLowerCase()">{{ ticket.type }}</span>
-                <span class="ticket-priority" [class]="'priority--' + ticket.priority.toLowerCase()">{{ ticket.priority }}</span>
-              </div>
-              <p class="ticket-summary">{{ ticket.summary }}</p>
-              <div class="ticket-bottom">
-                <span class="ticket-key">{{ ticket.key }}</span>
-                <span class="ticket-assignee">{{ ticket.assignee }}</span>
-              </div>
-            </div>
-          } @empty {
-            <div class="empty-column">No issues</div>
+  <div class="board-content">
+    @if (inProgressTasks().length === 0) {
+    <div class="empty-state">
+      <p>No tasks in progress</p>
+      <p class="help-text">Create a new task to get started</p>
+      <a routerLink="/create" class="btn-create-task">Create New Task</a>
+    </div>
+    } @else {
+    <div class="tasks-grid">
+      @for (task of inProgressTasks(); track task.id) {
+      <div class="task-card">
+        <div class="card-header">
+          <h3>{{ task.title }}</h3>
+          @if (task.jiraKey) {
+          <a [href]="task.jiraUrl" target="_blank" class="jira-link">{{ task.jiraKey }}</a>
           }
         </div>
+
+        @if (task.prUrl) {
+        <div class="pr-section">
+          <p>📝 PR Created:</p>
+          <a [href]="task.prUrl" target="_blank" class="pr-link">View PR</a>
+        </div>
+        }
+
+        <p class="task-created">Created: {{ task.createdAt | date: 'dd.MM.yyyy HH:mm' }}</p>
+
+        <div class="card-actions">
+          <button class="btn-view" (click)="openCheckpoint(task.sessionId)">View Details</button>
+        </div>
       </div>
+      }
+    </div>
     }
   </div>
   }

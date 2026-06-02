@@ -1,8 +1,10 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '@vercel/postgres';
+import { createClient } from '@vercel/postgres';
 import { generateCode } from './lib/code-generator';
 import { createPullRequest } from './lib/github';
 import axios from 'axios';
+
+const db = createClient({ connectionString: process.env.POSTGRES_URL });
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') {
@@ -16,25 +18,31 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   }
 
   try {
+    await db.connect();
+
     // Get session
-    const sessionResult = await sql`
-      SELECT * FROM sessions WHERE id = $1
-    `, [sessionId];
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions WHERE id = $1',
+      [sessionId]
+    );
 
     if (!sessionResult.rows.length) {
+      await db.end();
       return res.status(404).json({ error: 'NOT_FOUND' });
     }
 
     const session = sessionResult.rows[0];
 
     if (!session.orchestrator_plan) {
+      await db.end();
       return res.status(400).json({ error: 'NO_PLAN', message: 'No orchestrator plan found' });
     }
 
     // Get messages
-    const messagesResult = await sql`
-      SELECT * FROM messages WHERE session_id = $1 ORDER BY created_at ASC
-    `, [sessionId];
+    const messagesResult = await db.query(
+      'SELECT * FROM messages WHERE session_id = $1 ORDER BY created_at ASC',
+      [sessionId]
+    );
 
     const messages = messagesResult.rows;
 
@@ -45,12 +53,24 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     console.log(`Generating code for session ${sessionId}...`);
 
     // Generate code
-    const codeResult = await generateCode(
-      plan.summary || 'Implementation task',
-      plan,
-      messages,
-      repoContext
-    );
+    let codeResult;
+    try {
+      codeResult = await generateCode(
+        plan.summary || 'Implementation task',
+        plan,
+        messages,
+        repoContext
+      );
+      console.log('Code generation successful:', codeResult.files.length, 'files');
+    } catch (err: any) {
+      console.error('Code generation failed:', err.message);
+      await db.end();
+      return res.status(500).json({
+        error: 'CODE_GENERATION_ERROR',
+        message: err.message,
+        details: err.toString(),
+      });
+    }
 
     // Create branch name from task
     const timestamp = Date.now();
@@ -59,9 +79,11 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     console.log(`Creating PR with branch ${branchName}...`);
 
     // Create PR with generated files
-    const prResult = await createPullRequest({
-      title: plan.summary || 'Auto-implemented task',
-      body: `## Task Implementation
+    let prResult;
+    try {
+      prResult = await createPullRequest({
+        title: plan.summary || 'Auto-implemented task',
+        body: `## Task Implementation
 
 **Summary:** ${plan.summary}
 
@@ -75,16 +97,27 @@ ${codeResult.files.map((f) => `- ${f.changeType} \`${f.path}\``).join('\n')}
 ${codeResult.notes ? `\n**Notes:** ${codeResult.notes}` : ''}
 
 _Auto-generated implementation_`,
-      branchName,
-      files: codeResult.files,
-    });
+        branchName,
+        files: codeResult.files,
+      });
+      console.log('PR created successfully:', prResult.prUrl);
+    } catch (err: any) {
+      console.error('PR creation failed:', err.message, err.response?.data);
+      await db.end();
+      return res.status(500).json({
+        error: 'PR_CREATION_ERROR',
+        message: err.message,
+        details: err.response?.data || err.toString(),
+      });
+    }
 
     // Update session with PR info
-    await sql`
-      UPDATE sessions
-      SET pr_url = $1, approval_status = $2, updated_at = NOW()
-      WHERE id = $3
-    `, [prResult.prUrl, 'implemented', sessionId];
+    await db.query(
+      'UPDATE sessions SET pr_url = $1, approval_status = $2, updated_at = NOW() WHERE id = $3',
+      [prResult.prUrl, 'implemented', sessionId]
+    );
+
+    await db.end();
 
     // Send Discord notification - PR ready
     try {
@@ -134,9 +167,11 @@ _Auto-generated implementation_`,
     });
   } catch (err: any) {
     console.error('Implementation error:', err);
+    console.error('Stack:', err.stack);
     return res.status(500).json({
       error: 'IMPLEMENTATION_ERROR',
       message: err.message || 'Failed to implement task',
+      details: err.toString(),
     });
   }
 };

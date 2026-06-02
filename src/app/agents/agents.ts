@@ -1,5 +1,4 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AgentsService, Agent } from './agents.service';
@@ -15,7 +14,7 @@ interface AgentRow extends Agent {
 @Component({
   selector: 'app-agents',
   standalone: true,
-  imports: [RouterLink, FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule],
   templateUrl: './agents.html',
   styleUrl: './agents.scss',
 })

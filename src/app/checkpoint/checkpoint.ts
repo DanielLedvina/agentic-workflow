@@ -11,6 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { CheckpointService } from './checkpoint.service';
+import { TaskService } from '../shared/services/task.service';
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ interface Message {
 })
 export class Checkpoint implements OnInit {
   private checkpointService = inject(CheckpointService);
+  private taskService = inject(TaskService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -56,17 +58,19 @@ export class Checkpoint implements OnInit {
   ideContext = signal<string | null>(null);
   generatingContext = signal(false);
 
+  constructor() {
+    // Auto-scroll to bottom on new messages - must be in constructor for effect
+    effect(() => {
+      this.messages();
+      setTimeout(() => this.scrollToBottom(), 0);
+    });
+  }
+
   ngOnInit(): void {
     this.route.params.subscribe((params) => {
       const id = params['sessionId'];
       this.sessionId.set(id);
       this.loadSession(id);
-    });
-
-    // Auto-scroll to bottom on new messages
-    effect(() => {
-      this.messages();
-      setTimeout(() => this.scrollToBottom(), 0);
     });
   }
 
@@ -77,10 +81,18 @@ export class Checkpoint implements OnInit {
         this.session.set(session);
         this.messages.set(session.messages || []);
 
+        console.log('Loaded session:', session);
+        console.log('Orchestrator plan:', session.orchestrator_plan);
+
         // Extract difficulty from orchestrator plan if available
         if (session.orchestrator_plan) {
-          this.difficulty.set(session.orchestrator_plan.difficulty || 'hard');
-          this.difficultyReason.set(session.orchestrator_plan.summary || '');
+          const plan = session.orchestrator_plan;
+          const difficulty = plan.difficulty || 'hard';
+          const reason = plan.reasoning || plan.summary || '';
+
+          console.log('Setting difficulty:', difficulty, 'reason:', reason);
+          this.difficulty.set(difficulty as any);
+          this.difficultyReason.set(reason);
         }
 
         // Check if context for IDE is ready (for hard tasks)
@@ -92,6 +104,7 @@ export class Checkpoint implements OnInit {
       },
       error: (err) => {
         this.error.set('Failed to load session. Please try again.');
+        console.error('Session load error:', err);
         this.loading.set(false);
       },
     });
@@ -170,19 +183,19 @@ export class Checkpoint implements OnInit {
       next: (result) => {
         this.decision.set('implement');
 
-        // Update session status
+        // Update session status (which updates DB approval_status)
         this.checkpointService.makeDecision(this.sessionId()!, 'implement').subscribe({
           next: () => {
-            // Redirect to dashboard after success
+            // Redirect to create after success
             setTimeout(() => {
-              this.router.navigate(['/dashboard']);
+              this.router.navigate(['/create']);
             }, 2000);
           },
           error: (err) => {
             console.error('Failed to update decision:', err);
             // Don't fail - PR was created successfully
             setTimeout(() => {
-              this.router.navigate(['/dashboard']);
+              this.router.navigate(['/create']);
             }, 2000);
           },
         });
@@ -215,12 +228,19 @@ export class Checkpoint implements OnInit {
               this.decision.set('escalate');
               this.contextReady.set(true);
               this.decidingTask.set(false);
+              // Redirect back to create after escalating
+              setTimeout(() => {
+                this.router.navigate(['/create']);
+              }, 2000);
             },
             error: (err) => {
               this.error.set('Failed to record decision. Context is ready.');
               this.decidingTask.set(false);
               // Still show context even if decision recording fails
               this.contextReady.set(true);
+              setTimeout(() => {
+                this.router.navigate(['/create']);
+              }, 2000);
             },
           });
       },
@@ -258,6 +278,12 @@ ${session?.orchestrator_plan?.agents ? session.orchestrator_plan.agents.map((a: 
 ## Difficulty Assessment
 ${this.difficulty() === 'hard' ? 'Hard task - Requires developer expertise' : 'Easy task'}
 ${this.difficultyReason()}`;
+  }
+
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && event.ctrlKey) {
+      this.sendMessage();
+    }
   }
 
   private scrollToBottom(): void {

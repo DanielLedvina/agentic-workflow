@@ -275,3 +275,140 @@ h3 {
   font-size: 14px;
   padding: 24px 0;
 }
+
+/* Completed Tasks Section */
+.dash-header {
+  background: white;
+  padding: 2rem;
+  border-bottom: 1px solid #e0e0e0;
+  color: #333;
+
+  h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.8rem;
+    color: #333;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 0.95rem;
+  }
+}
+
+.state-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  color: #999;
+  font-size: 1.1rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #999;
+
+  p {
+    margin: 0.5rem 0;
+  }
+
+  .help-text {
+    font-size: 0.9rem;
+  }
+
+  .btn-create-task {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: #1976d2;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #1565c0;
+    }
+  }
+}
+
+.tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.task-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #10b981;
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1rem;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: #333;
+      flex: 1;
+    }
+
+    .jira-link {
+      padding: 0.25rem 0.75rem;
+      background: #e3f2fd;
+      color: #1976d2;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+
+      &:hover {
+        background: #bbdefb;
+      }
+    }
+  }
+
+  .pr-section {
+    background: #f0f9ff;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    border-left: 3px solid #10b981;
+
+    p {
+      margin: 0 0 0.5rem;
+      font-size: 0.85rem;
+      color: #555;
+    }
+
+    .pr-link {
+      display: inline-block;
+      color: #10b981;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .task-dates {
+    margin: 1rem 0 0;
+    font-size: 0.8rem;
+    color: #999;
+    line-height: 1.6;
+  }
+}

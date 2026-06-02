@@ -1,6 +1,8 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '@vercel/postgres';
+import { createClient } from '@vercel/postgres';
 import axios from 'axios';
+
+const db = createClient({ connectionString: process.env.POSTGRES_URL });
 
 export default async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== 'POST') {
@@ -14,21 +16,26 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   }
 
   try {
+    await db.connect();
+
     // Get session to retrieve conversation
-    const sessionResult = await sql`
-      SELECT * FROM sessions WHERE id = $1
-    `, [sessionId];
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions WHERE id = $1',
+      [sessionId]
+    );
 
     if (!sessionResult.rows.length) {
+      await db.end();
       return res.status(404).json({ error: 'NOT_FOUND' });
     }
 
     const session = sessionResult.rows[0];
 
     // Get messages
-    const messagesResult = await sql`
-      SELECT content FROM messages WHERE session_id = $1 ORDER BY created_at ASC
-    `, [sessionId];
+    const messagesResult = await db.query(
+      'SELECT content FROM messages WHERE session_id = $1 ORDER BY created_at ASC',
+      [sessionId]
+    );
 
     const messages = messagesResult.rows;
     const conversationSummary = messages
@@ -42,26 +49,12 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     ).toString('base64');
 
     const jiraResponse = await axios.post(
-      `${process.env.JIRA_BASE_URL}/rest/api/3/issues`,
+      `${process.env.JIRA_BASE_URL}/rest/api/2/issue`,
       {
         fields: {
           project: { key: process.env.JIRA_PROJECT_KEY },
           summary: title,
-          description: {
-            type: 'doc',
-            version: 1,
-            content: [
-              {
-                type: 'paragraph',
-                content: [
-                  {
-                    type: 'text',
-                    text: `Orchestrator Plan:\n${session.orchestrator_plan ? JSON.stringify(session.orchestrator_plan, null, 2) : 'N/A'}\n\nRecent Context:\n${conversationSummary}`,
-                  },
-                ],
-              },
-            ],
-          },
+          description: `Orchestrator Plan:\n${session.orchestrator_plan ? JSON.stringify(session.orchestrator_plan, null, 2) : 'N/A'}\n\nRecent Context:\n${conversationSummary}`,
           issuetype: { name: 'Task' },
         },
       },
@@ -77,10 +70,12 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     const ticketUrl = `${process.env.JIRA_BASE_URL}/browse/${ticketKey}`;
 
     // Store in DB
-    await sql`
-      INSERT INTO jira_task_links (session_id, jira_key, jira_url)
-      VALUES ($1, $2, $3)
-    `, [sessionId, ticketKey, ticketUrl];
+    await db.query(
+      'INSERT INTO jira_task_links (session_id, jira_key, jira_url) VALUES ($1, $2, $3)',
+      [sessionId, ticketKey, ticketUrl]
+    );
+
+    await db.end();
 
     // Send Discord notification to senior dev
     try {
@@ -123,8 +118,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       ticketKey,
       ticketUrl,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Jira error:', err);
-    return res.status(500).json({ error: 'JIRA_ERROR', message: 'Failed to create Jira task' });
+    console.error('Jira error details:', err.message, err.response?.data || err.toString());
+    return res.status(500).json({ error: 'JIRA_ERROR', message: err.message, details: err.response?.data || err.toString() });
   }
 };

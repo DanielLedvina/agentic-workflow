@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { dbPool } from '../lib/db-pool';
+import { sql } from '@vercel/postgres';
 import { verifyPassword } from '../lib/password-utils';
 import { generateAccessToken } from '../lib/jwt-utils';
 
@@ -31,11 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Fetch user
-    const user = await dbPool.getOne(
-      'SELECT id, email, password_hash, role FROM users WHERE email = $1',
-      [email],
-    );
+    const result = await sql`
+      SELECT id, email, password_hash, role FROM users WHERE email = $1
+    `, [email];
 
+    const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
     }

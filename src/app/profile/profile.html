@@ -57,7 +57,7 @@
         <div class="status-indicator" [class.active]="userProfile?.discord_user_id"></div>
         <div class="status-text">
           <p class="status-label">Discord Account</p>
-          <p class="status-value" *ngIf="userProfile?.discord_user_id">
+          <p class="status-value" *ngIf="userProfile && userProfile.discord_user_id">
             Linked (ID: {{ userProfile.discord_user_id }})
           </p>
           <p class="status-value" *ngIf="!userProfile?.discord_user_id">

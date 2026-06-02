@@ -1,15 +1,48 @@
 <div class="dashboard">
   <header class="dash-header">
-    <h1>Agentic Workflow Dashboard</h1>
-    <button class="btn-refresh" (click)="loadTraces()">Refresh</button>
+    <h1>✅ Completed Tasks</h1>
+    <p>Tasks that have been successfully completed</p>
   </header>
 
   @if (loading()) {
-    <div class="state-message">Loading traces...</div>
-  } @else if (error()) {
-    <div class="state-message state-message--error">{{ error() }}</div>
+    <div class="state-message">Loading tasks...</div>
   } @else {
     <div class="dash-body">
+      @if (doneTasks().length === 0) {
+        <div class="empty-state">
+          <p>No completed tasks yet</p>
+          <p class="help-text">Create and complete tasks to see them here</p>
+          <a routerLink="/create" class="btn-create-task">Create New Task</a>
+        </div>
+      } @else {
+        <div class="tasks-grid">
+          @for (task of doneTasks(); track task.id) {
+            <div class="task-card">
+              <div class="card-header">
+                <h3>{{ task.title }}</h3>
+                @if (task.jiraKey) {
+                  <a [href]="task.jiraUrl" target="_blank" class="jira-link">{{ task.jiraKey }}</a>
+                }
+              </div>
+
+              @if (task.prUrl) {
+                <div class="pr-section">
+                  <p>✅ PR Merged:</p>
+                  <a [href]="task.prUrl" target="_blank" class="pr-link">View PR</a>
+                </div>
+              }
+
+              <p class="task-dates">
+                Created: {{ task.createdAt | date: 'dd.MM.yyyy HH:mm' }}<br>
+                Completed: {{ task.updatedAt | date: 'dd.MM.yyyy HH:mm' }}
+              </p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="dash-body" style="margin-top: 2rem; border-top: 2px solid #e0e0e0; padding-top: 2rem;">
       <section class="traces-panel">
         <h2>Recent Runs <span class="count">{{ traces().length }}</span></h2>
 

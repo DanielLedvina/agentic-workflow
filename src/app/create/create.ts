@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { CreateService } from './create.service';
 import { AuthService } from '../shared/services/auth.service';
+import { TaskService, Task } from '../shared/services/task.service';
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ interface Message {
 export class Create implements OnInit {
   private createService = inject(CreateService);
   private authService = inject(AuthService);
+  private taskService = inject(TaskService);
   private router = inject(Router);
 
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
@@ -51,6 +53,17 @@ export class Create implements OnInit {
   creatingTask = signal(false);
   taskCreated = signal(false);
 
+  // New tasks list
+  newTasks = signal<Task[]>([]);
+
+  constructor() {
+    // Auto-scroll to bottom on new messages - must be in constructor for effect
+    effect(() => {
+      this.messages();
+      setTimeout(() => this.scrollToBottom(), 0);
+    });
+  }
+
   ngOnInit(): void {
     // Check if authenticated
     if (!this.authService.isAuthenticated()) {
@@ -58,14 +71,13 @@ export class Create implements OnInit {
       return;
     }
 
+    // Load new tasks
+    this.taskService.getTasksByStatus('new').subscribe((tasks) => {
+      this.newTasks.set(tasks);
+    });
+
     // Create new session
     this.initializeSession();
-
-    // Auto-scroll to bottom on new messages
-    effect(() => {
-      this.messages();
-      setTimeout(() => this.scrollToBottom(), 0);
-    });
   }
 
   private initializeSession(): void {
@@ -164,6 +176,16 @@ export class Create implements OnInit {
         this.creatingTask.set(false);
       },
     });
+  }
+
+  goToTask(task: Task): void {
+    this.router.navigate(['/checkpoint', task.sessionId]);
+  }
+
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && event.ctrlKey) {
+      this.sendMessage();
+    }
   }
 
   private scrollToBottom(): void {
